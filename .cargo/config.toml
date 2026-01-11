@@ -1,0 +1,25 @@
+# Cross-platform build configuration
+
+[build]
+# Default target can be set here if needed
+# target = "x86_64-unknown-linux-gnu"
+
+[target.x86_64-unknown-linux-gnu]
+# Linux-specific build settings
+rustflags = ["-C", "link-arg=-s"]
+
+[target.x86_64-apple-darwin]
+# macOS-specific build settings
+rustflags = ["-C", "link-arg=-s"]
+
+[target.aarch64-apple-darwin]
+# macOS Apple Silicon build settings
+rustflags = ["-C", "link-arg=-s"]
+
+[target.x86_64-pc-windows-msvc]
+# Windows-specific build settings
+rustflags = ["-C", "link-arg=/SUBSYSTEM:CONSOLE"]
+
+[target.x86_64-pc-windows-gnu]
+# Windows GNU build settings
+rustflags = ["-C", "link-arg=-s"]

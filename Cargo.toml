@@ -3,6 +3,15 @@ name = "bitsy"
 version = "0.1.0"
 edition = "2021"
 authors = ["Bitsy Contributors"]
+description = "A Vim-compatible text editor written in Rust"
+license = "MIT"
+repository = "https://github.com/yourusername/bitsy"
+readme = "README.md"
+keywords = ["editor", "vim", "terminal", "text-editor", "tui"]
+categories = ["command-line-utilities", "text-editors"]
+
+# Minimum supported Rust version
+rust-version = "1.70"
 
 [dependencies]
 # Terminal handling
@@ -24,3 +33,25 @@ toml = "0.8"
 
 # Regex for search (for later phases)
 regex = "1.11"
+
+# Platform-specific dependencies
+[target.'cfg(unix)'.dependencies]
+# Unix-specific dependencies can be added here if needed
+
+[target.'cfg(windows)'.dependencies]
+# Windows-specific dependencies can be added here if needed
+
+# Build profiles
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.dev]
+opt-level = 0
+
+# Binary configuration
+[[bin]]
+name = "bitsy"
+path = "src/main.rs"

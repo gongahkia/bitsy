@@ -3,8 +3,7 @@
 # Stack: Rust (recommended) or Zig/C for performance
 # Max Implementation: 150 tasks
 
-## Phase 1: Project Foundation (3 tasks remaining)
-(C) 2026-01-09 Set up unit testing framework and CI pipeline +foundation @testing
+## Phase 1: Project Foundation (2 tasks remaining)
 (C) 2026-01-09 Configure cross-platform build targets (Linux, macOS, Windows) +foundation @setup
 (C) 2026-01-09 Research tree-sitter for syntax highlighting integration +foundation @research
 
