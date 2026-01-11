@@ -84,6 +84,9 @@ pub enum Action {
     MakeLowercase,       // gu (waits for motion)
     MakeUppercase,       // gU (waits for motion)
     ToggleCase,          // g~ (waits for motion)
+    Indent,              // > (waits for motion)
+    Dedent,              // < (waits for motion)
+    AutoIndent,          // = (waits for motion)
 
     // Commands
     SaveFile,
@@ -163,6 +166,9 @@ fn map_normal_mode_key(key: KeyEvent) -> Action {
         KeyCode::Char('p') => Action::Paste,
         KeyCode::Char('P') => Action::PasteBefore,
         KeyCode::Char('J') => Action::Join,
+        KeyCode::Char('>') => Action::Indent,
+        KeyCode::Char('<') => Action::Dedent,
+        KeyCode::Char('=') => Action::AutoIndent,
 
         _ => Action::None,
     }

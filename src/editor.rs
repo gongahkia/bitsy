@@ -26,6 +26,9 @@ enum PendingOperator {
     MakeLowercase,
     MakeUppercase,
     ToggleCase,
+    Indent,
+    Dedent,
+    AutoIndent,
 }
 
 pub struct Editor {
@@ -362,6 +365,15 @@ impl Editor {
             PendingOperator::ToggleCase => {
                 self.apply_case_change(start_line, start_col, end_line, end_col, CaseChange::Toggle);
             }
+            PendingOperator::Indent => {
+                self.apply_indent(start_line, end_line, true);
+            }
+            PendingOperator::Dedent => {
+                self.apply_indent(start_line, end_line, false);
+            }
+            PendingOperator::AutoIndent => {
+                self.apply_auto_indent(start_line, end_line);
+            }
             PendingOperator::None => {}
         }
 
@@ -443,6 +455,82 @@ impl Editor {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    fn apply_indent(&mut self, start_line: usize, end_line: usize, indent_right: bool) {
+        const SHIFTWIDTH: usize = 4;
+
+        for line_idx in start_line..=end_line {
+            if line_idx >= self.buffer.line_count() {
+                break;
+            }
+
+            if indent_right {
+                // Add indentation (shiftwidth spaces at the beginning)
+                for i in 0..SHIFTWIDTH {
+                    self.buffer.insert_char(line_idx, i, ' ');
+                }
+            } else {
+                // Remove indentation (up to shiftwidth spaces/tabs from the beginning)
+                if let Some(line_text) = self.buffer.get_line(line_idx) {
+                    let mut chars_to_remove = 0;
+                    let chars: Vec<char> = line_text.chars().collect();
+
+                    for &ch in chars.iter().take(SHIFTWIDTH) {
+                        if ch == ' ' {
+                            chars_to_remove += 1;
+                        } else if ch == '\t' {
+                            chars_to_remove += 1;
+                            break; // One tab counts as full shiftwidth
+                        } else {
+                            break; // Stop at first non-whitespace
+                        }
+                    }
+
+                    for _ in 0..chars_to_remove {
+                        self.buffer.delete_char(line_idx, 0);
+                    }
+                }
+            }
+        }
+    }
+
+    fn apply_auto_indent(&mut self, start_line: usize, end_line: usize) {
+        // Simple auto-indent: for each line, match the indentation of the previous non-empty line
+        for line_idx in start_line..=end_line {
+            if line_idx >= self.buffer.line_count() {
+                break;
+            }
+
+            // Find the indentation of the previous non-empty line
+            let mut indent_level = 0;
+            if line_idx > 0 {
+                for prev_line in (0..line_idx).rev() {
+                    if let Some(prev_text) = self.buffer.get_line(prev_line) {
+                        let trimmed = prev_text.trim_start();
+                        if !trimmed.is_empty() {
+                            indent_level = prev_text.len() - trimmed.len();
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Remove existing indentation on this line
+            if let Some(line_text) = self.buffer.get_line(line_idx) {
+                let trimmed = line_text.trim_start();
+                let current_indent = line_text.len() - trimmed.len();
+
+                for _ in 0..current_indent {
+                    self.buffer.delete_char(line_idx, 0);
+                }
+
+                // Add the new indentation
+                for i in 0..indent_level {
+                    self.buffer.insert_char(line_idx, i, ' ');
                 }
             }
         }
@@ -839,6 +927,15 @@ impl Editor {
             }
             Action::ToggleCase => {
                 self.pending_operator = PendingOperator::ToggleCase;
+            }
+            Action::Indent => {
+                self.pending_operator = PendingOperator::Indent;
+            }
+            Action::Dedent => {
+                self.pending_operator = PendingOperator::Dedent;
+            }
+            Action::AutoIndent => {
+                self.pending_operator = PendingOperator::AutoIndent;
             }
 
             Action::Quit => {
