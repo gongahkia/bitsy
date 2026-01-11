@@ -9,8 +9,7 @@
 
 ## Phase 3: Text Buffer & Data Structures (0 tasks remaining - COMPLETE)
 
-## Phase 4: Vim Modal System (2 tasks remaining)
-(C) 2026-01-09 Build VisualBlock mode rectangular selection +vim @implementation
+## Phase 4: Vim Modal System (1 task remaining)
 (C) 2026-01-09 Write tests for mode transitions and edge cases +vim @testing
 
 ## Phase 5: Vim Motions (10 tasks remaining)
