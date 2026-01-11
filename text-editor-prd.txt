@@ -7,8 +7,7 @@
 
 ## Phase 2: Core Editor Infrastructure (0 tasks remaining - COMPLETE)
 
-## Phase 3: Text Buffer & Data Structures (2 tasks remaining)
-(B) 2026-01-09 Create selection/range tracking for visual mode +buffer @implementation
+## Phase 3: Text Buffer & Data Structures (1 task remaining)
 (C) 2026-01-09 Write comprehensive buffer unit tests for edge cases +buffer @testing
 
 ## Phase 4: Vim Modal System (4 tasks remaining)

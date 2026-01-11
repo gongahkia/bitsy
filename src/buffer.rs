@@ -329,4 +329,199 @@ mod tests {
         assert_eq!(LineEnding::CRLF.as_str(), "\r\n");
         assert_eq!(LineEnding::CR.as_str(), "\r");
     }
+
+    // Edge case tests
+
+    #[test]
+    fn test_empty_buffer() {
+        let buffer = Buffer::new();
+        assert_eq!(buffer.line_count(), 1);
+        assert_eq!(buffer.get_line(0), Some("".to_string()));
+        assert_eq!(buffer.line_len(0), 0);
+    }
+
+    #[test]
+    fn test_insert_at_invalid_position() {
+        let mut buffer = Buffer::new();
+        // Inserting at line beyond buffer should not panic
+        buffer.insert_char(100, 0, 'x');
+        // Should not have inserted anything
+        assert_eq!(buffer.line_count(), 1);
+    }
+
+    #[test]
+    fn test_delete_at_invalid_position() {
+        let mut buffer = Buffer::new();
+        buffer.insert_char(0, 0, 'a');
+        // Deleting beyond line length should not panic
+        buffer.delete_char(0, 100);
+        // Original character should still be there
+        assert_eq!(buffer.get_line(0), Some("a".to_string()));
+    }
+
+    #[test]
+    fn test_unicode_characters() {
+        let mut buffer = Buffer::new();
+        buffer.insert_char(0, 0, '你');
+        buffer.insert_char(0, 1, '好');
+        buffer.insert_char(0, 2, '世');
+        buffer.insert_char(0, 3, '界');
+        let line = buffer.get_line(0).unwrap();
+        assert_eq!(line, "你好世界");
+        // Unicode chars count as 1 char each in Rust
+        assert_eq!(line.chars().count(), 4);
+    }
+
+    #[test]
+    fn test_emoji_characters() {
+        let mut buffer = Buffer::new();
+        buffer.insert_char(0, 0, '😀');
+        buffer.insert_char(0, 1, '🎉');
+        buffer.insert_char(0, 2, '🚀');
+        assert_eq!(buffer.get_line(0), Some("😀🎉🚀".to_string()));
+    }
+
+    #[test]
+    fn test_mixed_unicode_ascii() {
+        let mut buffer = Buffer::new();
+        buffer.insert_char(0, 0, 'H');
+        buffer.insert_char(0, 1, 'e');
+        buffer.insert_char(0, 2, 'l');
+        buffer.insert_char(0, 3, 'l');
+        buffer.insert_char(0, 4, 'o');
+        buffer.insert_char(0, 5, '世');
+        buffer.insert_char(0, 6, '界');
+        assert_eq!(buffer.get_line(0), Some("Hello世界".to_string()));
+    }
+
+    #[test]
+    fn test_delete_range_entire_line() {
+        let mut buffer = Buffer::new();
+        buffer.insert_char(0, 0, 'h');
+        buffer.insert_char(0, 1, 'e');
+        buffer.insert_char(0, 2, 'l');
+        buffer.insert_char(0, 3, 'l');
+        buffer.insert_char(0, 4, 'o');
+        buffer.delete_range(0, 0, 0, 5);
+        assert_eq!(buffer.get_line(0), Some("".to_string()));
+    }
+
+    #[test]
+    fn test_delete_range_multiline() {
+        let mut buffer = Buffer::new();
+        buffer.insert_char(0, 0, 'a');
+        buffer.insert_newline(0, 1);
+        buffer.insert_char(1, 0, 'b');
+        buffer.insert_newline(1, 1);
+        buffer.insert_char(2, 0, 'c');
+
+        // Delete from middle of line 0 to middle of line 2
+        buffer.delete_range(0, 0, 1, 1);
+        assert_eq!(buffer.line_count(), 2);
+    }
+
+    #[test]
+    fn test_insert_newline_at_start() {
+        let mut buffer = Buffer::new();
+        buffer.insert_char(0, 0, 'a');
+        buffer.insert_newline(0, 0);
+        assert_eq!(buffer.line_count(), 2);
+        assert_eq!(buffer.get_line(0), Some("".to_string()));
+        assert_eq!(buffer.get_line(1), Some("a".to_string()));
+    }
+
+    #[test]
+    fn test_insert_newline_at_end() {
+        let mut buffer = Buffer::new();
+        buffer.insert_char(0, 0, 'a');
+        buffer.insert_newline(0, 1);
+        assert_eq!(buffer.line_count(), 2);
+        assert_eq!(buffer.get_line(0), Some("a".to_string()));
+        assert_eq!(buffer.get_line(1), Some("".to_string()));
+    }
+
+    #[test]
+    fn test_get_line_out_of_bounds() {
+        let buffer = Buffer::new();
+        assert_eq!(buffer.get_line(100), None);
+    }
+
+    #[test]
+    fn test_line_len_out_of_bounds() {
+        let buffer = Buffer::new();
+        assert_eq!(buffer.line_len(100), 0);
+    }
+
+    #[test]
+    fn test_consecutive_newlines() {
+        let mut buffer = Buffer::new();
+        buffer.insert_newline(0, 0);
+        buffer.insert_newline(1, 0);
+        buffer.insert_newline(2, 0);
+        assert_eq!(buffer.line_count(), 4);
+        assert_eq!(buffer.get_line(0), Some("".to_string()));
+        assert_eq!(buffer.get_line(1), Some("".to_string()));
+        assert_eq!(buffer.get_line(2), Some("".to_string()));
+        assert_eq!(buffer.get_line(3), Some("".to_string()));
+    }
+
+    #[test]
+    fn test_delete_char_at_line_start() {
+        let mut buffer = Buffer::new();
+        buffer.insert_char(0, 0, 'a');
+        buffer.insert_char(0, 1, 'b');
+        buffer.insert_char(0, 2, 'c');
+        buffer.delete_char(0, 0);
+        assert_eq!(buffer.get_line(0), Some("bc".to_string()));
+    }
+
+    #[test]
+    fn test_delete_char_at_line_end() {
+        let mut buffer = Buffer::new();
+        buffer.insert_char(0, 0, 'a');
+        buffer.insert_char(0, 1, 'b');
+        buffer.insert_char(0, 2, 'c');
+        buffer.delete_char(0, 2);
+        assert_eq!(buffer.get_line(0), Some("ab".to_string()));
+    }
+
+    #[test]
+    fn test_whitespace_handling() {
+        let mut buffer = Buffer::new();
+        buffer.insert_char(0, 0, ' ');
+        buffer.insert_char(0, 1, '\t');
+        buffer.insert_char(0, 2, ' ');
+        assert_eq!(buffer.line_len(0), 3);
+        assert_eq!(buffer.get_line(0), Some(" \t ".to_string()));
+    }
+
+    #[test]
+    fn test_very_long_line() {
+        let mut buffer = Buffer::new();
+        for i in 0..1000 {
+            buffer.insert_char(0, i, 'x');
+        }
+        assert_eq!(buffer.line_len(0), 1000);
+        let line = buffer.get_line(0).unwrap();
+        assert_eq!(line.len(), 1000);
+        assert!(line.chars().all(|c| c == 'x'));
+    }
+
+    #[test]
+    fn test_many_lines() {
+        let mut buffer = Buffer::new();
+        // Insert first character
+        buffer.insert_char(0, 0, 'a');
+
+        // Create additional lines
+        for i in 1..100 {
+            buffer.insert_newline(i - 1, 1);
+            buffer.insert_char(i, 0, 'a');
+        }
+
+        assert_eq!(buffer.line_count(), 100);
+        for i in 0..100 {
+            assert_eq!(buffer.get_line(i), Some("a".to_string()));
+        }
+    }
 }
