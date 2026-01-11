@@ -203,6 +203,50 @@ impl Editor {
                 self.cursor.line = self.buffer.line_count().saturating_sub(1);
                 self.cursor.col = 0;
             }
+            Action::MoveWordEnd => {
+                self.move_word_end();
+            }
+            Action::MoveWordForwardBig => {
+                self.move_word_forward_big();
+            }
+            Action::MoveWordBackwardBig => {
+                self.move_word_backward_big();
+            }
+            Action::MoveWordEndBig => {
+                self.move_word_end_big();
+            }
+            Action::MoveLineFirstNonBlank => {
+                self.move_to_first_non_blank();
+            }
+            Action::MoveParagraphForward => {
+                self.move_paragraph_forward();
+            }
+            Action::MoveParagraphBackward => {
+                self.move_paragraph_backward();
+            }
+            Action::MoveMatchingBracket => {
+                self.move_to_matching_bracket();
+            }
+            Action::MovePageUp => {
+                let page_size = self.viewport.height;
+                self.cursor.move_up(page_size);
+                self.clamp_cursor();
+            }
+            Action::MovePageDown => {
+                let page_size = self.viewport.height;
+                self.cursor.move_down(page_size);
+                self.clamp_cursor();
+            }
+            Action::MoveHalfPageUp => {
+                let half_page = self.viewport.height / 2;
+                self.cursor.move_up(half_page);
+                self.clamp_cursor();
+            }
+            Action::MoveHalfPageDown => {
+                let half_page = self.viewport.height / 2;
+                self.cursor.move_down(half_page);
+                self.clamp_cursor();
+            }
 
             // Mode switching
             Action::EnterInsertMode => {
@@ -369,6 +413,243 @@ impl Editor {
             }
 
             self.cursor.col = col;
+        }
+    }
+
+    fn move_word_end(&mut self) {
+        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+            let chars: Vec<char> = line_text.chars().collect();
+            if chars.is_empty() || self.cursor.col >= chars.len() {
+                return;
+            }
+
+            let mut col = self.cursor.col;
+
+            // If on whitespace, skip to next word
+            if chars[col].is_whitespace() {
+                while col < chars.len() && chars[col].is_whitespace() {
+                    col += 1;
+                }
+            }
+
+            // Move to end of current word
+            while col < chars.len() - 1 && !chars[col + 1].is_whitespace() {
+                col += 1;
+            }
+
+            self.cursor.col = col;
+            self.clamp_cursor();
+        }
+    }
+
+    fn move_word_forward_big(&mut self) {
+        // WORD motion (space-separated)
+        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+            let mut chars = line_text.chars().skip(self.cursor.col).peekable();
+            let mut col = self.cursor.col;
+
+            // Skip current WORD (non-whitespace)
+            while let Some(&ch) = chars.peek() {
+                if ch.is_whitespace() {
+                    break;
+                }
+                chars.next();
+                col += 1;
+            }
+
+            // Skip whitespace
+            while let Some(&ch) = chars.peek() {
+                if !ch.is_whitespace() {
+                    break;
+                }
+                chars.next();
+                col += 1;
+            }
+
+            self.cursor.col = col;
+            self.clamp_cursor();
+        }
+    }
+
+    fn move_word_backward_big(&mut self) {
+        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+            if self.cursor.col == 0 {
+                return;
+            }
+
+            let chars: Vec<char> = line_text.chars().collect();
+            let mut col = self.cursor.col.saturating_sub(1);
+
+            // Skip whitespace
+            while col > 0 && chars[col].is_whitespace() {
+                col -= 1;
+            }
+
+            // Skip WORD
+            while col > 0 && !chars[col].is_whitespace() {
+                col -= 1;
+            }
+
+            // Move past the whitespace
+            if chars[col].is_whitespace() && col < chars.len() - 1 {
+                col += 1;
+            }
+
+            self.cursor.col = col;
+        }
+    }
+
+    fn move_word_end_big(&mut self) {
+        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+            let chars: Vec<char> = line_text.chars().collect();
+            if chars.is_empty() || self.cursor.col >= chars.len() {
+                return;
+            }
+
+            let mut col = self.cursor.col;
+
+            // If on whitespace, skip to next WORD
+            if chars[col].is_whitespace() {
+                while col < chars.len() && chars[col].is_whitespace() {
+                    col += 1;
+                }
+            }
+
+            // Move to end of current WORD
+            while col < chars.len() - 1 && !chars[col + 1].is_whitespace() {
+                col += 1;
+            }
+
+            self.cursor.col = col;
+            self.clamp_cursor();
+        }
+    }
+
+    fn move_to_first_non_blank(&mut self) {
+        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+            let chars: Vec<char> = line_text.chars().collect();
+            let mut col = 0;
+
+            while col < chars.len() && chars[col].is_whitespace() {
+                col += 1;
+            }
+
+            self.cursor.col = col.min(chars.len().saturating_sub(1));
+        }
+    }
+
+    fn move_paragraph_forward(&mut self) {
+        let mut line = self.cursor.line + 1;
+        let line_count = self.buffer.line_count();
+
+        // Skip non-empty lines
+        while line < line_count {
+            if let Some(text) = self.buffer.get_line(line) {
+                if text.trim().is_empty() {
+                    break;
+                }
+            }
+            line += 1;
+        }
+
+        // Skip empty lines
+        while line < line_count {
+            if let Some(text) = self.buffer.get_line(line) {
+                if !text.trim().is_empty() {
+                    break;
+                }
+            }
+            line += 1;
+        }
+
+        self.cursor.line = line.min(line_count.saturating_sub(1));
+        self.cursor.col = 0;
+        self.clamp_cursor();
+    }
+
+    fn move_paragraph_backward(&mut self) {
+        if self.cursor.line == 0 {
+            return;
+        }
+
+        let mut line = self.cursor.line.saturating_sub(1);
+
+        // Skip non-empty lines
+        loop {
+            if let Some(text) = self.buffer.get_line(line) {
+                if text.trim().is_empty() {
+                    break;
+                }
+            }
+            if line == 0 {
+                break;
+            }
+            line -= 1;
+        }
+
+        // Skip empty lines
+        loop {
+            if line == 0 {
+                break;
+            }
+            if let Some(text) = self.buffer.get_line(line.saturating_sub(1)) {
+                if !text.trim().is_empty() {
+                    line -= 1;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        self.cursor.line = line;
+        self.cursor.col = 0;
+        self.clamp_cursor();
+    }
+
+    fn move_to_matching_bracket(&mut self) {
+        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+            let chars: Vec<char> = line_text.chars().collect();
+            if self.cursor.col >= chars.len() {
+                return;
+            }
+
+            let current_char = chars[self.cursor.col];
+            let matching_brackets = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
+
+            for (open, close) in &matching_brackets {
+                if current_char == *open {
+                    // Search forward for closing bracket
+                    let mut depth = 0;
+                    for (i, &ch) in chars.iter().enumerate().skip(self.cursor.col) {
+                        if ch == *open {
+                            depth += 1;
+                        } else if ch == *close {
+                            depth -= 1;
+                            if depth == 0 {
+                                self.cursor.col = i;
+                                return;
+                            }
+                        }
+                    }
+                } else if current_char == *close {
+                    // Search backward for opening bracket
+                    let mut depth = 0;
+                    for i in (0..=self.cursor.col).rev() {
+                        let ch = chars[i];
+                        if ch == *close {
+                            depth += 1;
+                        } else if ch == *open {
+                            depth -= 1;
+                            if depth == 0 {
+                                self.cursor.col = i;
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 

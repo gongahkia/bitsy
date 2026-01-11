@@ -11,10 +11,22 @@ pub enum Action {
     MoveRight,
     MoveWordForward,
     MoveWordBackward,
+    MoveWordEnd,
+    MoveWordForwardBig,    // W
+    MoveWordBackwardBig,   // B
+    MoveWordEndBig,        // E
     MoveLineStart,
+    MoveLineFirstNonBlank, // ^
     MoveLineEnd,
     MoveFileStart,
     MoveFileEnd,
+    MoveParagraphForward,  // }
+    MoveParagraphBackward, // {
+    MoveMatchingBracket,   // %
+    MovePageUp,            // Ctrl-b
+    MovePageDown,          // Ctrl-f
+    MoveHalfPageUp,        // Ctrl-u
+    MoveHalfPageDown,      // Ctrl-d
 
     // Mode switching
     EnterInsertMode,
@@ -57,6 +69,13 @@ pub fn map_key(key: KeyEvent, mode: &crate::mode::Mode) -> Action {
 
 fn map_normal_mode_key(key: KeyEvent) -> Action {
     match key.code {
+        // Page/screen movement (check Ctrl keys first)
+        KeyCode::Char('b') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::MovePageUp,
+        KeyCode::Char('f') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::MovePageDown,
+        KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::MoveHalfPageUp,
+        KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::MoveHalfPageDown,
+        KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::Redo,
+
         // Movement
         KeyCode::Char('h') => Action::MoveLeft,
         KeyCode::Char('j') => Action::MoveDown,
@@ -64,10 +83,18 @@ fn map_normal_mode_key(key: KeyEvent) -> Action {
         KeyCode::Char('l') => Action::MoveRight,
         KeyCode::Char('w') => Action::MoveWordForward,
         KeyCode::Char('b') => Action::MoveWordBackward,
+        KeyCode::Char('e') => Action::MoveWordEnd,
+        KeyCode::Char('W') => Action::MoveWordForwardBig,
+        KeyCode::Char('B') => Action::MoveWordBackwardBig,
+        KeyCode::Char('E') => Action::MoveWordEndBig,
         KeyCode::Char('0') => Action::MoveLineStart,
+        KeyCode::Char('^') => Action::MoveLineFirstNonBlank,
         KeyCode::Char('$') => Action::MoveLineEnd,
         KeyCode::Char('g') => Action::MoveFileStart, // gg handled separately
         KeyCode::Char('G') => Action::MoveFileEnd,
+        KeyCode::Char('}') => Action::MoveParagraphForward,
+        KeyCode::Char('{') => Action::MoveParagraphBackward,
+        KeyCode::Char('%') => Action::MoveMatchingBracket,
 
         // Mode switching
         KeyCode::Char('i') => Action::EnterInsertMode,
@@ -84,7 +111,6 @@ fn map_normal_mode_key(key: KeyEvent) -> Action {
         KeyCode::Char('x') => Action::DeleteChar,
         KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::NONE) => Action::DeleteLine, // dd handled separately
         KeyCode::Char('u') => Action::Undo,
-        KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::Redo,
 
         _ => Action::None,
     }
