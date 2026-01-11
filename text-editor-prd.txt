@@ -5,8 +5,7 @@
 
 ## Phase 1: Project Foundation (0 tasks remaining - COMPLETE)
 
-## Phase 2: Core Editor Infrastructure (1 task remaining)
-(C) 2026-01-09 Implement line numbering display (absolute and relative) +core @implementation
+## Phase 2: Core Editor Infrastructure (0 tasks remaining - COMPLETE)
 
 ## Phase 3: Text Buffer & Data Structures (3 tasks remaining)
 (A) 2026-01-09 Implement line ending handling (LF, CRLF, CR) for cross-platform support +buffer @implementation

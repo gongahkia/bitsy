@@ -6,11 +6,52 @@ use std::path::{Path, PathBuf};
 
 use crate::error::{Error, Result};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LineEnding {
+    LF,   // Unix/Linux/macOS: \n
+    CRLF, // Windows: \r\n
+    CR,   // Old Mac: \r
+}
+
+impl LineEnding {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            LineEnding::LF => "\n",
+            LineEnding::CRLF => "\r\n",
+            LineEnding::CR => "\r",
+        }
+    }
+
+    pub fn detect(content: &str) -> Self {
+        // Check for Windows line endings first (most specific)
+        if content.contains("\r\n") {
+            LineEnding::CRLF
+        } else if content.contains('\r') {
+            LineEnding::CR
+        } else {
+            // Default to LF (Unix/Linux/macOS)
+            LineEnding::LF
+        }
+    }
+}
+
+impl Default for LineEnding {
+    fn default() -> Self {
+        // Default to platform-specific line ending
+        #[cfg(windows)]
+        return LineEnding::CRLF;
+
+        #[cfg(not(windows))]
+        LineEnding::LF
+    }
+}
+
 #[derive(Debug)]
 pub struct Buffer {
     rope: Rope,
     file_path: Option<PathBuf>,
     modified: bool,
+    line_ending: LineEnding,
 }
 
 impl Buffer {
@@ -19,24 +60,40 @@ impl Buffer {
             rope: Rope::new(),
             file_path: None,
             modified: false,
+            line_ending: LineEnding::default(),
         }
     }
 
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let content = fs::read_to_string(&path)?;
-        let rope = Rope::from_str(&content);
+
+        // Detect line ending from file content
+        let line_ending = LineEnding::detect(&content);
+
+        // Normalize to LF for internal representation
+        let normalized = content.replace("\r\n", "\n").replace('\r', "\n");
+        let rope = Rope::from_str(&normalized);
 
         Ok(Self {
             rope,
             file_path: Some(path.as_ref().to_path_buf()),
             modified: false,
+            line_ending,
         })
     }
 
     pub fn save(&mut self) -> Result<()> {
         if let Some(ref path) = self.file_path {
             let content = self.rope.to_string();
-            fs::write(path, content)?;
+
+            // Convert line endings to the original format
+            let content_with_endings = match self.line_ending {
+                LineEnding::LF => content,
+                LineEnding::CRLF => content.replace('\n', "\r\n"),
+                LineEnding::CR => content.replace('\n', "\r"),
+            };
+
+            fs::write(path, content_with_endings)?;
             self.modified = false;
             Ok(())
         } else {
@@ -126,6 +183,15 @@ impl Buffer {
             .and_then(|n| n.to_str())
             .unwrap_or("[No Name]")
             .to_string()
+    }
+
+    pub fn line_ending(&self) -> LineEnding {
+        self.line_ending
+    }
+
+    pub fn set_line_ending(&mut self, line_ending: LineEnding) {
+        self.line_ending = line_ending;
+        self.modified = true;
     }
 }
 
@@ -218,5 +284,49 @@ mod tests {
         assert_eq!(buffer.line_count(), 2);
         assert_eq!(buffer.get_line(0), Some("line1".to_string()));
         assert_eq!(buffer.get_line(1), Some("line2".to_string()));
+    }
+
+    #[test]
+    fn test_line_ending_detection_lf() {
+        let content = "line1\nline2\nline3\n";
+        assert_eq!(LineEnding::detect(content), LineEnding::LF);
+    }
+
+    #[test]
+    fn test_line_ending_detection_crlf() {
+        let content = "line1\r\nline2\r\nline3\r\n";
+        assert_eq!(LineEnding::detect(content), LineEnding::CRLF);
+    }
+
+    #[test]
+    fn test_line_ending_detection_cr() {
+        let content = "line1\rline2\rline3\r";
+        assert_eq!(LineEnding::detect(content), LineEnding::CR);
+    }
+
+    #[test]
+    fn test_line_ending_default() {
+        let buffer = Buffer::new();
+        // Default should be platform-specific
+        #[cfg(windows)]
+        assert_eq!(buffer.line_ending(), LineEnding::CRLF);
+
+        #[cfg(not(windows))]
+        assert_eq!(buffer.line_ending(), LineEnding::LF);
+    }
+
+    #[test]
+    fn test_set_line_ending() {
+        let mut buffer = Buffer::new();
+        buffer.set_line_ending(LineEnding::CRLF);
+        assert_eq!(buffer.line_ending(), LineEnding::CRLF);
+        assert_eq!(buffer.is_modified(), true);
+    }
+
+    #[test]
+    fn test_line_ending_as_str() {
+        assert_eq!(LineEnding::LF.as_str(), "\n");
+        assert_eq!(LineEnding::CRLF.as_str(), "\r\n");
+        assert_eq!(LineEnding::CR.as_str(), "\r");
     }
 }
