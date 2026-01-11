@@ -10,6 +10,7 @@ pub mod keymap;
 pub mod mode;
 pub mod motion;
 pub mod operator;
+pub mod register;
 pub mod statusline;
 pub mod terminal;
 pub mod viewport;

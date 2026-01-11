@@ -10,9 +10,18 @@ use crate::cursor::Cursor;
 use crate::error::Result;
 use crate::keymap::{map_key, Action};
 use crate::mode::Mode;
+use crate::register::{RegisterContent, RegisterManager};
 use crate::statusline::StatusLine;
 use crate::terminal::Terminal;
 use crate::viewport::Viewport;
+
+#[derive(Debug, Clone, PartialEq)]
+enum PendingOperator {
+    None,
+    Delete,
+    Change,
+    Yank,
+}
 
 pub struct Editor {
     terminal: Terminal,
@@ -24,6 +33,8 @@ pub struct Editor {
     command_buffer: String,
     message: Option<String>,
     should_quit: bool,
+    registers: RegisterManager,
+    pending_operator: PendingOperator,
 }
 
 impl Editor {
@@ -44,6 +55,8 @@ impl Editor {
             command_buffer: String::new(),
             message: None,
             should_quit: false,
+            registers: RegisterManager::new(),
+            pending_operator: PendingOperator::None,
         })
     }
 
@@ -323,6 +336,155 @@ impl Editor {
                     // x in normal mode
                     self.buffer.delete_char(self.cursor.line, self.cursor.col);
                     self.clamp_cursor();
+                }
+            }
+
+            // Operators
+            Action::Delete => {
+                // Set pending operator
+                self.pending_operator = PendingOperator::Delete;
+            }
+            Action::DeleteToEnd => {
+                // Delete from cursor to end of line
+                let line = self.cursor.line;
+                let start_col = self.cursor.col;
+                let end_col = self.buffer.line_len(line);
+                if start_col < end_col {
+                    let deleted = self.buffer.get_line(line)
+                        .map(|text| text[start_col..end_col].to_string())
+                        .unwrap_or_default();
+                    self.buffer.delete_range(line, start_col, line, end_col);
+                    self.registers.set_delete(None, RegisterContent::Char(deleted));
+                }
+            }
+            Action::Change => {
+                self.pending_operator = PendingOperator::Change;
+            }
+            Action::ChangeToEnd => {
+                // Change from cursor to end of line
+                let line = self.cursor.line;
+                let start_col = self.cursor.col;
+                let end_col = self.buffer.line_len(line);
+                if start_col < end_col {
+                    let deleted = self.buffer.get_line(line)
+                        .map(|text| text[start_col..end_col].to_string())
+                        .unwrap_or_default();
+                    self.buffer.delete_range(line, start_col, line, end_col);
+                    self.registers.set_delete(None, RegisterContent::Char(deleted));
+                }
+                self.mode = Mode::Insert;
+            }
+            Action::Yank => {
+                self.pending_operator = PendingOperator::Yank;
+            }
+            Action::YankLine => {
+                // Yank entire line
+                if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+                    self.registers.set_yank(None, RegisterContent::Line(vec![line_text]));
+                    self.message = Some("1 line yanked".to_string());
+                }
+            }
+            Action::YankToEnd => {
+                // Yank from cursor to end of line
+                let line = self.cursor.line;
+                let start_col = self.cursor.col;
+                let line_len = self.buffer.line_len(line);
+                if let Some(line_text) = self.buffer.get_line(line) {
+                    if start_col < line_len {
+                        let yanked = line_text[start_col..].to_string();
+                        self.registers.set_yank(None, RegisterContent::Char(yanked));
+                    }
+                }
+            }
+            Action::Paste => {
+                // Paste after cursor
+                if let Some(content) = self.registers.get(None) {
+                    match content {
+                        RegisterContent::Char(text) => {
+                            for ch in text.chars() {
+                                if ch == '\n' {
+                                    self.buffer.insert_newline(self.cursor.line, self.cursor.col);
+                                    self.cursor.line += 1;
+                                    self.cursor.col = 0;
+                                } else {
+                                    self.buffer.insert_char(self.cursor.line, self.cursor.col, ch);
+                                    self.cursor.col += 1;
+                                }
+                            }
+                        }
+                        RegisterContent::Line(lines) => {
+                            // Paste line(s) below current line
+                            let insert_line = self.cursor.line + 1;
+                            for (i, line) in lines.iter().enumerate() {
+                                // Insert newline to create space
+                                let target_line = insert_line + i;
+                                if target_line > 0 {
+                                    let prev_line = target_line - 1;
+                                    let prev_line_len = self.buffer.line_len(prev_line);
+                                    self.buffer.insert_newline(prev_line, prev_line_len);
+                                }
+                                // Insert the line content
+                                for ch in line.chars() {
+                                    self.buffer.insert_char(target_line, 0, ch);
+                                }
+                            }
+                            self.cursor.line = insert_line;
+                            self.cursor.col = 0;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Action::PasteBefore => {
+                // Paste before cursor
+                if let Some(content) = self.registers.get(None) {
+                    match content {
+                        RegisterContent::Char(text) => {
+                            for ch in text.chars() {
+                                if ch == '\n' {
+                                    self.buffer.insert_newline(self.cursor.line, self.cursor.col);
+                                    self.cursor.line += 1;
+                                    self.cursor.col = 0;
+                                } else {
+                                    self.buffer.insert_char(self.cursor.line, self.cursor.col, ch);
+                                    self.cursor.col += 1;
+                                }
+                            }
+                        }
+                        RegisterContent::Line(lines) => {
+                            // Paste line(s) above current line
+                            for (i, line) in lines.iter().enumerate() {
+                                let target_line = self.cursor.line + i;
+                                // Insert newline to create space
+                                if target_line > 0 {
+                                    let prev_line = target_line.saturating_sub(1);
+                                    let prev_line_len = self.buffer.line_len(prev_line);
+                                    self.buffer.insert_newline(prev_line, prev_line_len);
+                                }
+                                // Insert the line content
+                                for ch in line.chars() {
+                                    self.buffer.insert_char(target_line, 0, ch);
+                                }
+                            }
+                            self.cursor.col = 0;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Action::Join => {
+                // Join current line with next line
+                let current_line = self.cursor.line;
+                if current_line < self.buffer.line_count() - 1 {
+                    let line1_len = self.buffer.line_len(current_line);
+
+                    // Delete the newline at end of current line
+                    self.buffer.delete_range(current_line, line1_len, current_line + 1, 0);
+
+                    // Insert space if needed
+                    if line1_len > 0 {
+                        self.buffer.insert_char(current_line, line1_len, ' ');
+                    }
                 }
             }
 

@@ -48,6 +48,20 @@ pub enum Action {
     Undo,
     Redo,
 
+    // Operators
+    Delete,              // d (waits for motion)
+    DeleteToEnd,         // D
+    Change,              // c (waits for motion)
+    ChangeToEnd,         // C
+    ChangeLine,          // cc
+    Yank,                // y (waits for motion)
+    YankLine,            // yy
+    YankToEnd,           // Y
+    Paste,               // p
+    PasteBefore,         // P
+    Join,                // J
+    Replace(char),       // r
+
     // Commands
     SaveFile,
     Quit,
@@ -109,8 +123,18 @@ fn map_normal_mode_key(key: KeyEvent) -> Action {
 
         // Editing
         KeyCode::Char('x') => Action::DeleteChar,
-        KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::NONE) => Action::DeleteLine, // dd handled separately
         KeyCode::Char('u') => Action::Undo,
+
+        // Operators
+        KeyCode::Char('d') => Action::Delete,
+        KeyCode::Char('D') => Action::DeleteToEnd,
+        KeyCode::Char('c') => Action::Change,
+        KeyCode::Char('C') => Action::ChangeToEnd,
+        KeyCode::Char('y') => Action::Yank,
+        KeyCode::Char('Y') => Action::YankToEnd,
+        KeyCode::Char('p') => Action::Paste,
+        KeyCode::Char('P') => Action::PasteBefore,
+        KeyCode::Char('J') => Action::Join,
 
         _ => Action::None,
     }
