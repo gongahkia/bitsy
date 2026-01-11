@@ -79,7 +79,11 @@ pub enum Action {
     Paste,               // p
     PasteBefore,         // P
     Join,                // J
+    JoinNoSpace,         // gJ
     Replace(char),       // r
+    MakeLowercase,       // gu (waits for motion)
+    MakeUppercase,       // gU (waits for motion)
+    ToggleCase,          // g~ (waits for motion)
 
     // Commands
     SaveFile,

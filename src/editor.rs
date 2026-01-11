@@ -23,6 +23,9 @@ enum PendingOperator {
     Delete,
     Change,
     Yank,
+    MakeLowercase,
+    MakeUppercase,
+    ToggleCase,
 }
 
 pub struct Editor {
@@ -48,6 +51,13 @@ enum FindDirection {
     Backward,   // F
     Till,       // t
     TillBack,   // T
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CaseChange {
+    Lower,
+    Upper,
+    Toggle,
 }
 
 impl Editor {
@@ -343,6 +353,15 @@ impl Editor {
                 self.buffer.delete_range(start_line, start_col, end_line, end_col);
                 self.mode = Mode::Insert;
             }
+            PendingOperator::MakeLowercase => {
+                self.apply_case_change(start_line, start_col, end_line, end_col, CaseChange::Lower);
+            }
+            PendingOperator::MakeUppercase => {
+                self.apply_case_change(start_line, start_col, end_line, end_col, CaseChange::Upper);
+            }
+            PendingOperator::ToggleCase => {
+                self.apply_case_change(start_line, start_col, end_line, end_col, CaseChange::Toggle);
+            }
             PendingOperator::None => {}
         }
 
@@ -376,6 +395,57 @@ impl Editor {
             return result;
         }
         String::new()
+    }
+
+    fn apply_case_change(&mut self, start_line: usize, start_col: usize, end_line: usize, end_col: usize, case_change: CaseChange) {
+        for line_idx in start_line..=end_line {
+            if let Some(line_text) = self.buffer.get_line(line_idx) {
+                let chars: Vec<char> = line_text.chars().collect();
+                if chars.is_empty() {
+                    continue;
+                }
+
+                let (from, to) = if line_idx == start_line && line_idx == end_line {
+                    // Same line
+                    (start_col.min(chars.len()), end_col.min(chars.len()))
+                } else if line_idx == start_line {
+                    // First line
+                    (start_col.min(chars.len()), chars.len())
+                } else if line_idx == end_line {
+                    // Last line
+                    (0, end_col.min(chars.len()))
+                } else {
+                    // Middle line
+                    (0, chars.len())
+                };
+
+                // Apply case change to each character in range
+                for col in from..to {
+                    if col < chars.len() {
+                        let old_char = chars[col];
+                        let new_char = match case_change {
+                            CaseChange::Lower => old_char.to_lowercase().collect::<Vec<char>>(),
+                            CaseChange::Upper => old_char.to_uppercase().collect::<Vec<char>>(),
+                            CaseChange::Toggle => {
+                                if old_char.is_lowercase() {
+                                    old_char.to_uppercase().collect::<Vec<char>>()
+                                } else {
+                                    old_char.to_lowercase().collect::<Vec<char>>()
+                                }
+                            }
+                        };
+
+                        // Delete old char and insert new char(s)
+                        if new_char.len() > 0 && new_char[0] != old_char {
+                            self.buffer.delete_char(line_idx, col);
+                            for (i, ch) in new_char.iter().enumerate() {
+                                self.buffer.insert_char(line_idx, col + i, *ch);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fn execute_action(&mut self, action: Action) -> Result<()> {
@@ -751,6 +821,24 @@ impl Editor {
                         self.buffer.insert_char(current_line, line1_len, ' ');
                     }
                 }
+            }
+            Action::JoinNoSpace => {
+                // gJ - Join current line with next line without space
+                let current_line = self.cursor.line;
+                if current_line < self.buffer.line_count() - 1 {
+                    let line1_len = self.buffer.line_len(current_line);
+                    // Delete the newline at end of current line
+                    self.buffer.delete_range(current_line, line1_len, current_line + 1, 0);
+                }
+            }
+            Action::MakeLowercase => {
+                self.pending_operator = PendingOperator::MakeLowercase;
+            }
+            Action::MakeUppercase => {
+                self.pending_operator = PendingOperator::MakeUppercase;
+            }
+            Action::ToggleCase => {
+                self.pending_operator = PendingOperator::ToggleCase;
             }
 
             Action::Quit => {
