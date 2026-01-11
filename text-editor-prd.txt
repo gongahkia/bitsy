@@ -34,8 +34,7 @@
 (C) 2026-01-09 Build screen position motions (H, M, L, zt, zz, zb) +vim-motions @implementation
 (C) 2026-01-09 Implement text object motions (aw, iw, ap, ip, a", i", a', i', a), i), etc) +vim-motions @implementation
 
-## Phase 6: Vim Operators (8 tasks remaining)
-(A) 2026-01-09 Complete operator-motion composition (d/c/y + motion) +vim-operators @implementation
+## Phase 6: Vim Operators (7 tasks remaining)
 (B) 2026-01-09 Create case change operators (gu, gU, g~) +vim-operators @implementation
 (B) 2026-01-09 Build indent operators (>, <, =) +vim-operators @implementation
 (B) 2026-01-09 Implement gJ (join without space) +vim-operators @implementation
@@ -192,4 +191,6 @@
 (C) 2026-01-09 Create architecture and contribution guide +docs @writing
 (C) 2026-01-09 Build example configs and usage videos +docs @writing
 
-# Total Tasks: 150
+# Phases 1-8: 40 tasks remaining (48 completed)
+# Phases 9-23: 102 tasks remaining (not yet started)
+# Total Remaining: 142 tasks
