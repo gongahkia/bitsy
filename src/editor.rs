@@ -6,6 +6,7 @@ use std::path::Path;
 
 use crate::buffer::Buffer;
 use crate::command::{parse_command, Command};
+use crate::config::{Config, LineNumberMode};
 use crate::cursor::Cursor;
 use crate::error::Result;
 use crate::keymap::{map_key, Action};
@@ -35,6 +36,7 @@ pub struct Editor {
     should_quit: bool,
     registers: RegisterManager,
     pending_operator: PendingOperator,
+    config: Config,
 }
 
 impl Editor {
@@ -57,6 +59,7 @@ impl Editor {
             should_quit: false,
             registers: RegisterManager::new(),
             pending_operator: PendingOperator::None,
+            config: Config::default(),
         })
     }
 
@@ -1007,9 +1010,10 @@ impl Editor {
         // Render command line or message
         self.render_command_line()?;
 
-        // Position cursor
+        // Position cursor (account for line number gutter)
+        let line_num_width = self.config.line_number_width(self.buffer.line_count());
         let screen_row = self.cursor.line.saturating_sub(self.viewport.offset_line);
-        let screen_col = self.cursor.col.saturating_sub(self.viewport.offset_col);
+        let screen_col = self.cursor.col.saturating_sub(self.viewport.offset_col) + line_num_width;
         self.terminal.move_cursor(screen_col as u16, screen_row as u16)?;
 
         self.terminal.show_cursor()?;
@@ -1021,6 +1025,7 @@ impl Editor {
     fn render_buffer(&mut self) -> Result<()> {
         let (width, height) = self.terminal.size();
         let viewport_height = (height as usize).saturating_sub(2);
+        let line_num_width = self.config.line_number_width(self.buffer.line_count());
 
         for row in 0..viewport_height {
             let file_line = self.viewport.offset_line + row;
@@ -1028,14 +1033,62 @@ impl Editor {
             self.terminal.move_cursor(0, row as u16)?;
 
             if file_line < self.buffer.line_count() {
+                // Render line number
+                self.render_line_number(file_line, line_num_width)?;
+
+                // Render line content
                 if let Some(line) = self.buffer.get_line(file_line) {
                     let start = self.viewport.offset_col.min(line.len());
-                    let visible_line = &line[start..].chars().take(width as usize).collect::<String>();
+                    let available_width = (width as usize).saturating_sub(line_num_width);
+                    let visible_line = &line[start..].chars().take(available_width).collect::<String>();
                     self.terminal.print(visible_line)?;
                 }
             } else {
+                // Render empty line indicator
+                if line_num_width > 0 {
+                    let padding = " ".repeat(line_num_width.saturating_sub(1));
+                    self.terminal.print_colored(&padding, Color::DarkGrey)?;
+                }
                 self.terminal.print_colored("~", Color::Blue)?;
             }
+        }
+
+        Ok(())
+    }
+
+    fn render_line_number(&mut self, line: usize, width: usize) -> Result<()> {
+        if width == 0 {
+            return Ok(());
+        }
+
+        let number = match self.config.line_numbers {
+            LineNumberMode::None => return Ok(()),
+            LineNumberMode::Absolute => {
+                format!("{:>width$} ", line + 1, width = width - 1)
+            }
+            LineNumberMode::Relative => {
+                let distance = if line == self.cursor.line {
+                    line + 1
+                } else {
+                    (line as isize - self.cursor.line as isize).abs() as usize
+                };
+                format!("{:>width$} ", distance, width = width - 1)
+            }
+            LineNumberMode::RelativeAbsolute => {
+                let distance = if line == self.cursor.line {
+                    line + 1
+                } else {
+                    (line as isize - self.cursor.line as isize).abs() as usize
+                };
+                format!("{:>width$} ", distance, width = width - 1)
+            }
+        };
+
+        // Highlight current line number
+        if line == self.cursor.line && self.config.show_current_line {
+            self.terminal.print_colored(&number, Color::Yellow)?;
+        } else {
+            self.terminal.print_colored(&number, Color::DarkGrey)?;
         }
 
         Ok(())

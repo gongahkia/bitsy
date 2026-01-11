@@ -3,6 +3,7 @@
 
 pub mod buffer;
 pub mod command;
+pub mod config;
 pub mod cursor;
 pub mod editor;
 pub mod error;
