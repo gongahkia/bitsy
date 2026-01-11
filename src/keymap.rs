@@ -40,6 +40,12 @@ pub enum Action {
     TillCharBack(char),    // T{char}
     RepeatLastFind,        // ;
     RepeatLastFindReverse, // ,
+    MoveToScreenTop,       // H
+    MoveToScreenMiddle,    // M
+    MoveToScreenBottom,    // L
+    ScrollTopToScreen,     // zt
+    ScrollMiddleToScreen,  // zz
+    ScrollBottomToScreen,  // zb
 
     // Mode switching
     EnterInsertMode,
@@ -124,6 +130,9 @@ fn map_normal_mode_key(key: KeyEvent) -> Action {
         KeyCode::Char('%') => Action::MoveMatchingBracket,
         KeyCode::Char(')') => Action::MoveSentenceForward,
         KeyCode::Char('(') => Action::MoveSentenceBackward,
+        KeyCode::Char('H') => Action::MoveToScreenTop,
+        KeyCode::Char('M') => Action::MoveToScreenMiddle,
+        KeyCode::Char('L') => Action::MoveToScreenBottom,
 
         // Mode switching
         KeyCode::Char('i') => Action::EnterInsertMode,

@@ -276,6 +276,7 @@ impl Editor {
             Action::MoveSentenceForward | Action::MoveSentenceBackward |
             Action::FindChar(_) | Action::FindCharBack(_) | Action::TillChar(_) | Action::TillCharBack(_) |
             Action::RepeatLastFind | Action::RepeatLastFindReverse |
+            Action::MoveToScreenTop | Action::MoveToScreenMiddle | Action::MoveToScreenBottom |
             Action::MoveMatchingBracket |
             Action::MovePageUp | Action::MovePageDown |
             Action::MoveHalfPageUp | Action::MoveHalfPageDown => {
@@ -473,6 +474,24 @@ impl Editor {
             }
             Action::RepeatLastFindReverse => {
                 self.repeat_last_find(true);
+            }
+            Action::MoveToScreenTop => {
+                self.move_to_screen_top();
+            }
+            Action::MoveToScreenMiddle => {
+                self.move_to_screen_middle();
+            }
+            Action::MoveToScreenBottom => {
+                self.move_to_screen_bottom();
+            }
+            Action::ScrollTopToScreen => {
+                self.scroll_top_to_screen();
+            }
+            Action::ScrollMiddleToScreen => {
+                self.scroll_middle_to_screen();
+            }
+            Action::ScrollBottomToScreen => {
+                self.scroll_bottom_to_screen();
             }
             Action::MoveParagraphForward => {
                 self.move_paragraph_forward();
@@ -1226,6 +1245,46 @@ impl Editor {
 
             self.find_char(ch, direction);
         }
+    }
+
+    fn move_to_screen_top(&mut self) {
+        // H - Move cursor to top of visible screen
+        self.cursor.line = self.viewport.offset_line;
+        self.cursor.col = 0;
+        self.clamp_cursor();
+    }
+
+    fn move_to_screen_middle(&mut self) {
+        // M - Move cursor to middle of visible screen
+        let middle_line = self.viewport.offset_line + (self.viewport.height / 2);
+        self.cursor.line = middle_line.min(self.buffer.line_count().saturating_sub(1));
+        self.cursor.col = 0;
+        self.clamp_cursor();
+    }
+
+    fn move_to_screen_bottom(&mut self) {
+        // L - Move cursor to bottom of visible screen
+        let bottom_line = self.viewport.offset_line + self.viewport.height - 1;
+        self.cursor.line = bottom_line.min(self.buffer.line_count().saturating_sub(1));
+        self.cursor.col = 0;
+        self.clamp_cursor();
+    }
+
+    fn scroll_top_to_screen(&mut self) {
+        // zt - Scroll so current line is at top of screen
+        self.viewport.offset_line = self.cursor.line;
+    }
+
+    fn scroll_middle_to_screen(&mut self) {
+        // zz - Scroll so current line is at middle of screen
+        let half_height = self.viewport.height / 2;
+        self.viewport.offset_line = self.cursor.line.saturating_sub(half_height);
+    }
+
+    fn scroll_bottom_to_screen(&mut self) {
+        // zb - Scroll so current line is at bottom of screen
+        let bottom_offset = self.viewport.height.saturating_sub(1);
+        self.viewport.offset_line = self.cursor.line.saturating_sub(bottom_offset);
     }
 
     fn move_paragraph_forward(&mut self) {
