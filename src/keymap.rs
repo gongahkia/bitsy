@@ -130,7 +130,7 @@ fn map_normal_mode_key(key: KeyEvent) -> Action {
         KeyCode::Char('0') => Action::MoveLineStart,
         KeyCode::Char('^') => Action::MoveLineFirstNonBlank,
         KeyCode::Char('$') => Action::MoveLineEnd,
-        KeyCode::Char('g') => Action::MoveFileStart, // gg handled separately
+        // 'g' is handled as a prefix key in editor.rs (for gg, ge, gJ, gu, etc.)
         KeyCode::Char('G') => Action::MoveFileEnd,
         KeyCode::Char('}') => Action::MoveParagraphForward,
         KeyCode::Char('{') => Action::MoveParagraphBackward,

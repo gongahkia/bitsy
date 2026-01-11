@@ -46,6 +46,7 @@ pub struct Editor {
     config: Config,
     selection: Option<Selection>,
     last_find: Option<(char, FindDirection)>,
+    pending_key: Option<char>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -86,6 +87,7 @@ impl Editor {
             config: Config::default(),
             selection: None,
             last_find: None,
+            pending_key: None,
         })
     }
 
@@ -128,7 +130,18 @@ impl Editor {
         if self.mode == Mode::Command {
             self.handle_command_mode_key(key)?;
         } else {
-            let action = map_key(key, &self.mode);
+            // Handle multi-key sequences (like gJ, gg, ge, etc.)
+            let action = if let Some(prefix) = self.pending_key {
+                let sequence_action = self.map_key_sequence(prefix, key);
+                self.pending_key = None; // Clear pending key after processing
+                sequence_action
+            } else if key.code == KeyCode::Char('g') && self.mode == Mode::Normal {
+                // 'g' is a prefix key, wait for next key
+                self.pending_key = Some('g');
+                return Ok(());
+            } else {
+                map_key(key, &self.mode)
+            };
 
             // Handle operator-motion composition
             if self.pending_operator != PendingOperator::None {
@@ -138,6 +151,26 @@ impl Editor {
             }
         }
         Ok(())
+    }
+
+    fn map_key_sequence(&self, prefix: char, key: KeyEvent) -> Action {
+        if prefix == 'g' {
+            match key.code {
+                KeyCode::Char('g') => Action::MoveFileStart, // gg
+                KeyCode::Char('e') => Action::MoveWordEndBack, // ge
+                KeyCode::Char('E') => Action::MoveWordEndBackBig, // gE
+                KeyCode::Char('_') => Action::MoveLineEndNonBlank, // g_
+                KeyCode::Char('0') => Action::MoveLineStartDisplay, // g0
+                KeyCode::Char('$') => Action::MoveLineEndDisplay, // g$
+                KeyCode::Char('J') => Action::JoinNoSpace, // gJ
+                KeyCode::Char('u') => Action::MakeLowercase, // gu
+                KeyCode::Char('U') => Action::MakeUppercase, // gU
+                KeyCode::Char('~') => Action::ToggleCase, // g~
+                _ => Action::None,
+            }
+        } else {
+            Action::None
+        }
     }
 
     fn handle_command_mode_key(&mut self, key: KeyEvent) -> Result<()> {
