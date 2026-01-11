@@ -39,6 +39,15 @@ pub struct Editor {
     pending_operator: PendingOperator,
     config: Config,
     selection: Option<Selection>,
+    last_find: Option<(char, FindDirection)>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FindDirection {
+    Forward,    // f
+    Backward,   // F
+    Till,       // t
+    TillBack,   // T
 }
 
 impl Editor {
@@ -63,6 +72,7 @@ impl Editor {
             pending_operator: PendingOperator::None,
             config: Config::default(),
             selection: None,
+            last_find: None,
         })
     }
 
@@ -264,6 +274,8 @@ impl Editor {
             Action::MoveFileStart | Action::MoveFileEnd |
             Action::MoveParagraphForward | Action::MoveParagraphBackward |
             Action::MoveSentenceForward | Action::MoveSentenceBackward |
+            Action::FindChar(_) | Action::FindCharBack(_) | Action::TillChar(_) | Action::TillCharBack(_) |
+            Action::RepeatLastFind | Action::RepeatLastFindReverse |
             Action::MoveMatchingBracket |
             Action::MovePageUp | Action::MovePageDown |
             Action::MoveHalfPageUp | Action::MoveHalfPageDown => {
@@ -443,6 +455,24 @@ impl Editor {
             }
             Action::MoveSentenceBackward => {
                 self.move_sentence_backward();
+            }
+            Action::FindChar(ch) => {
+                self.find_char(ch, FindDirection::Forward);
+            }
+            Action::FindCharBack(ch) => {
+                self.find_char(ch, FindDirection::Backward);
+            }
+            Action::TillChar(ch) => {
+                self.find_char(ch, FindDirection::Till);
+            }
+            Action::TillCharBack(ch) => {
+                self.find_char(ch, FindDirection::TillBack);
+            }
+            Action::RepeatLastFind => {
+                self.repeat_last_find(false);
+            }
+            Action::RepeatLastFindReverse => {
+                self.repeat_last_find(true);
             }
             Action::MoveParagraphForward => {
                 self.move_paragraph_forward();
@@ -1113,6 +1143,89 @@ impl Editor {
         // Reached start of buffer
         self.cursor.line = 0;
         self.cursor.col = 0;
+    }
+
+    fn find_char(&mut self, ch: char, direction: FindDirection) {
+        // Store for repeat
+        self.last_find = Some((ch, direction));
+
+        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+            let chars: Vec<char> = line_text.chars().collect();
+            if chars.is_empty() {
+                return;
+            }
+
+            match direction {
+                FindDirection::Forward => {
+                    // f - find forward (inclusive)
+                    let start = self.cursor.col + 1;
+                    for i in start..chars.len() {
+                        if chars[i] == ch {
+                            self.cursor.col = i;
+                            return;
+                        }
+                    }
+                }
+                FindDirection::Backward => {
+                    // F - find backward (inclusive)
+                    if self.cursor.col == 0 {
+                        return;
+                    }
+                    let start = self.cursor.col - 1;
+                    for i in (0..=start).rev() {
+                        if chars[i] == ch {
+                            self.cursor.col = i;
+                            return;
+                        }
+                    }
+                }
+                FindDirection::Till => {
+                    // t - till forward (stop before)
+                    let start = self.cursor.col + 1;
+                    for i in start..chars.len() {
+                        if chars[i] == ch {
+                            if i > 0 {
+                                self.cursor.col = i - 1;
+                            }
+                            return;
+                        }
+                    }
+                }
+                FindDirection::TillBack => {
+                    // T - till backward (stop after)
+                    if self.cursor.col == 0 {
+                        return;
+                    }
+                    let start = self.cursor.col - 1;
+                    for i in (0..=start).rev() {
+                        if chars[i] == ch {
+                            if i < chars.len() - 1 {
+                                self.cursor.col = i + 1;
+                            }
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn repeat_last_find(&mut self, reverse: bool) {
+        if let Some((ch, direction)) = self.last_find {
+            let direction = if reverse {
+                // Reverse the direction
+                match direction {
+                    FindDirection::Forward => FindDirection::Backward,
+                    FindDirection::Backward => FindDirection::Forward,
+                    FindDirection::Till => FindDirection::TillBack,
+                    FindDirection::TillBack => FindDirection::Till,
+                }
+            } else {
+                direction
+            };
+
+            self.find_char(ch, direction);
+        }
     }
 
     fn move_paragraph_forward(&mut self) {

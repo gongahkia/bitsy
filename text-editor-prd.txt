@@ -11,10 +11,7 @@
 
 ## Phase 4: Vim Modal System (0 tasks remaining - COMPLETE)
 
-## Phase 5: Vim Motions (10 tasks remaining)
-(A) 2026-01-09 Implement remaining word motions (ge, gE) +vim-motions @implementation
-(A) 2026-01-09 Build remaining line motions (g_, g0, g$) +vim-motions @implementation
-(A) 2026-01-09 Create sentence motions (, ) +vim-motions @implementation
+## Phase 5: Vim Motions (7 tasks remaining)
 (A) 2026-01-09 Implement remaining vertical motions (:line, line%) +vim-motions @implementation
 (B) 2026-01-09 Implement character search motions (f, F, t, T, ;, ,) +vim-motions @implementation
 (B) 2026-01-09 Build search motions (n, N) +vim-motions @implementation

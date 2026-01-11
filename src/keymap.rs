@@ -34,6 +34,12 @@ pub enum Action {
     MoveHalfPageDown,      // Ctrl-d
     MoveSentenceForward,   // )
     MoveSentenceBackward,  // (
+    FindChar(char),        // f{char}
+    FindCharBack(char),    // F{char}
+    TillChar(char),        // t{char}
+    TillCharBack(char),    // T{char}
+    RepeatLastFind,        // ;
+    RepeatLastFindReverse, // ,
 
     // Mode switching
     EnterInsertMode,
