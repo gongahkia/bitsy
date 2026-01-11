@@ -12,6 +12,7 @@ use crate::error::Result;
 use crate::keymap::{map_key, Action};
 use crate::mode::Mode;
 use crate::register::{RegisterContent, RegisterManager};
+use crate::selection::Selection;
 use crate::statusline::StatusLine;
 use crate::terminal::Terminal;
 use crate::viewport::Viewport;
@@ -37,6 +38,7 @@ pub struct Editor {
     registers: RegisterManager,
     pending_operator: PendingOperator,
     config: Config,
+    selection: Option<Selection>,
 }
 
 impl Editor {
@@ -60,6 +62,7 @@ impl Editor {
             registers: RegisterManager::new(),
             pending_operator: PendingOperator::None,
             config: Config::default(),
+            selection: None,
         })
     }
 
@@ -477,9 +480,11 @@ impl Editor {
             }
             Action::EnterVisualMode => {
                 self.mode = Mode::Visual;
+                self.selection = Some(Selection::from_cursor(self.cursor, Mode::Visual));
             }
             Action::EnterVisualLineMode => {
                 self.mode = Mode::VisualLine;
+                self.selection = Some(Selection::from_cursor(self.cursor, Mode::VisualLine));
             }
             Action::EnterCommandMode => {
                 self.mode = Mode::Command;
@@ -487,6 +492,7 @@ impl Editor {
             }
             Action::EnterNormalMode => {
                 self.mode = Mode::Normal;
+                self.selection = None; // Clear selection when leaving visual mode
                 // In normal mode, cursor should not go past last char
                 let line_len = self.buffer.line_len(self.cursor.line);
                 if line_len > 0 && self.cursor.col >= line_len {
@@ -702,6 +708,13 @@ impl Editor {
         } else if self.mode == Mode::Insert {
             // In insert mode, cursor can be at end of line
             self.cursor.col = self.cursor.col.min(line_len);
+        }
+
+        // Update selection if in visual mode
+        if matches!(self.mode, Mode::Visual | Mode::VisualLine | Mode::VisualBlock) {
+            if let Some(ref mut selection) = self.selection {
+                selection.update_cursor(self.cursor.into());
+            }
         }
     }
 

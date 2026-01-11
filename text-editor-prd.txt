@@ -7,8 +7,7 @@
 
 ## Phase 2: Core Editor Infrastructure (0 tasks remaining - COMPLETE)
 
-## Phase 3: Text Buffer & Data Structures (3 tasks remaining)
-(A) 2026-01-09 Implement line ending handling (LF, CRLF, CR) for cross-platform support +buffer @implementation
+## Phase 3: Text Buffer & Data Structures (2 tasks remaining)
 (B) 2026-01-09 Create selection/range tracking for visual mode +buffer @implementation
 (C) 2026-01-09 Write comprehensive buffer unit tests for edge cases +buffer @testing
 
