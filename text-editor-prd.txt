@@ -174,7 +174,6 @@
 (C) 2026-01-09 Create vim compatibility documentation +docs @writing
 (C) 2026-01-09 Write API documentation for plugins +docs @writing
 (C) 2026-01-09 Create architecture and contribution guide +docs @writing
-(C) 2026-01-09 Build example configs and usage videos +docs @writing
 
 # Phases 1-8: 40 tasks remaining (48 completed)
 # Phases 9-23: 102 tasks remaining (not yet started)
