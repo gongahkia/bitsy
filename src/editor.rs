@@ -1049,12 +1049,11 @@ impl Editor {
                 // Render line number
                 self.render_line_number(file_line, line_num_width)?;
 
-                // Render line content
+                // Render line content with selection highlighting
                 if let Some(line) = self.buffer.get_line(file_line) {
                     let start = self.viewport.offset_col.min(line.len());
                     let available_width = (width as usize).saturating_sub(line_num_width);
-                    let visible_line = &line[start..].chars().take(available_width).collect::<String>();
-                    self.terminal.print(visible_line)?;
+                    self.render_line_content(file_line, &line, start, available_width)?;
                 }
             } else {
                 // Render empty line indicator
@@ -1063,6 +1062,35 @@ impl Editor {
                     self.terminal.print_colored(&padding, Color::DarkGrey)?;
                 }
                 self.terminal.print_colored("~", Color::Blue)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn render_line_content(&mut self, line: usize, line_text: &str, start_col: usize, available_width: usize) -> Result<()> {
+        let chars: Vec<char> = line_text.chars().collect();
+
+        // If no selection or not in visual mode, render normally
+        if self.selection.is_none() || !matches!(self.mode, Mode::Visual | Mode::VisualLine | Mode::VisualBlock) {
+            let visible_text: String = chars[start_col.min(chars.len())..]
+                .iter()
+                .take(available_width)
+                .collect();
+            self.terminal.print(&visible_text)?;
+            return Ok(());
+        }
+
+        // Render with selection highlighting
+        if let Some(ref selection) = self.selection {
+            for (col_idx, &ch) in chars.iter().enumerate().skip(start_col).take(available_width) {
+                if selection.contains(line, col_idx) {
+                    // Character is selected - render with highlight
+                    self.terminal.print_with_bg(&ch.to_string(), Color::White, Color::Blue)?;
+                } else {
+                    // Character is not selected - render normally
+                    self.terminal.print(&ch.to_string())?;
+                }
             }
         }
 

@@ -73,6 +73,17 @@ impl Terminal {
         Ok(())
     }
 
+    pub fn print_with_bg(&self, text: &str, fg_color: Color, bg_color: Color) -> Result<()> {
+        execute!(
+            io::stdout(),
+            style::SetForegroundColor(fg_color),
+            style::SetBackgroundColor(bg_color)
+        )?;
+        print!("{}", text);
+        execute!(io::stdout(), style::ResetColor)?;
+        Ok(())
+    }
+
     pub fn read_event(&self) -> Result<Option<Event>> {
         if event::poll(std::time::Duration::from_millis(100))? {
             Ok(Some(event::read()?))
