@@ -134,3 +134,89 @@ impl Default for Buffer {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_buffer() {
+        let buffer = Buffer::new();
+        assert_eq!(buffer.line_count(), 1);
+        assert_eq!(buffer.is_modified(), false);
+        assert_eq!(buffer.file_path(), None);
+    }
+
+    #[test]
+    fn test_insert_char() {
+        let mut buffer = Buffer::new();
+        buffer.insert_char(0, 0, 'h');
+        buffer.insert_char(0, 1, 'i');
+        assert_eq!(buffer.get_line(0), Some("hi".to_string()));
+        assert_eq!(buffer.is_modified(), true);
+    }
+
+    #[test]
+    fn test_insert_newline() {
+        let mut buffer = Buffer::new();
+        buffer.insert_char(0, 0, 'a');
+        buffer.insert_newline(0, 1);
+        buffer.insert_char(1, 0, 'b');
+        assert_eq!(buffer.line_count(), 2);
+        assert_eq!(buffer.get_line(0), Some("a".to_string()));
+        assert_eq!(buffer.get_line(1), Some("b".to_string()));
+    }
+
+    #[test]
+    fn test_delete_char() {
+        let mut buffer = Buffer::new();
+        buffer.insert_char(0, 0, 'h');
+        buffer.insert_char(0, 1, 'e');
+        buffer.insert_char(0, 2, 'l');
+        buffer.insert_char(0, 3, 'l');
+        buffer.insert_char(0, 4, 'o');
+        buffer.delete_char(0, 1);
+        assert_eq!(buffer.get_line(0), Some("hllo".to_string()));
+    }
+
+    #[test]
+    fn test_delete_range() {
+        let mut buffer = Buffer::new();
+        buffer.insert_char(0, 0, 'h');
+        buffer.insert_char(0, 1, 'e');
+        buffer.insert_char(0, 2, 'l');
+        buffer.insert_char(0, 3, 'l');
+        buffer.insert_char(0, 4, 'o');
+        buffer.delete_range(0, 1, 0, 4);
+        assert_eq!(buffer.get_line(0), Some("ho".to_string()));
+    }
+
+    #[test]
+    fn test_line_len() {
+        let mut buffer = Buffer::new();
+        assert_eq!(buffer.line_len(0), 0);
+        buffer.insert_char(0, 0, 'h');
+        buffer.insert_char(0, 1, 'i');
+        assert_eq!(buffer.line_len(0), 2);
+    }
+
+    #[test]
+    fn test_multiline_operations() {
+        let mut buffer = Buffer::new();
+        buffer.insert_char(0, 0, 'l');
+        buffer.insert_char(0, 1, 'i');
+        buffer.insert_char(0, 2, 'n');
+        buffer.insert_char(0, 3, 'e');
+        buffer.insert_char(0, 4, '1');
+        buffer.insert_newline(0, 5);
+        buffer.insert_char(1, 0, 'l');
+        buffer.insert_char(1, 1, 'i');
+        buffer.insert_char(1, 2, 'n');
+        buffer.insert_char(1, 3, 'e');
+        buffer.insert_char(1, 4, '2');
+
+        assert_eq!(buffer.line_count(), 2);
+        assert_eq!(buffer.get_line(0), Some("line1".to_string()));
+        assert_eq!(buffer.get_line(1), Some("line2".to_string()));
+    }
+}
