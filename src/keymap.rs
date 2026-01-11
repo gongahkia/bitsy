@@ -12,12 +12,17 @@ pub enum Action {
     MoveWordForward,
     MoveWordBackward,
     MoveWordEnd,
+    MoveWordEndBack,       // ge (end of previous word)
     MoveWordForwardBig,    // W
     MoveWordBackwardBig,   // B
     MoveWordEndBig,        // E
+    MoveWordEndBackBig,    // gE (end of previous WORD)
     MoveLineStart,
     MoveLineFirstNonBlank, // ^
     MoveLineEnd,
+    MoveLineEndNonBlank,   // g_ (last non-blank character)
+    MoveLineStartDisplay,  // g0 (first character of screen line)
+    MoveLineEndDisplay,    // g$ (last character of screen line)
     MoveFileStart,
     MoveFileEnd,
     MoveParagraphForward,  // }
@@ -27,6 +32,8 @@ pub enum Action {
     MovePageDown,          // Ctrl-f
     MoveHalfPageUp,        // Ctrl-u
     MoveHalfPageDown,      // Ctrl-d
+    MoveSentenceForward,   // )
+    MoveSentenceBackward,  // (
 
     // Mode switching
     EnterInsertMode,
@@ -109,6 +116,8 @@ fn map_normal_mode_key(key: KeyEvent) -> Action {
         KeyCode::Char('}') => Action::MoveParagraphForward,
         KeyCode::Char('{') => Action::MoveParagraphBackward,
         KeyCode::Char('%') => Action::MoveMatchingBracket,
+        KeyCode::Char(')') => Action::MoveSentenceForward,
+        KeyCode::Char('(') => Action::MoveSentenceBackward,
 
         // Mode switching
         KeyCode::Char('i') => Action::EnterInsertMode,

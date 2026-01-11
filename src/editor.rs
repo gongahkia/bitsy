@@ -257,10 +257,13 @@ impl Editor {
             // Movement actions
             Action::MoveUp | Action::MoveDown | Action::MoveLeft | Action::MoveRight |
             Action::MoveWordForward | Action::MoveWordBackward | Action::MoveWordEnd |
+            Action::MoveWordEndBack | Action::MoveWordEndBackBig |
             Action::MoveWordForwardBig | Action::MoveWordBackwardBig | Action::MoveWordEndBig |
             Action::MoveLineStart | Action::MoveLineFirstNonBlank | Action::MoveLineEnd |
+            Action::MoveLineEndNonBlank | Action::MoveLineStartDisplay | Action::MoveLineEndDisplay |
             Action::MoveFileStart | Action::MoveFileEnd |
             Action::MoveParagraphForward | Action::MoveParagraphBackward |
+            Action::MoveSentenceForward | Action::MoveSentenceBackward |
             Action::MoveMatchingBracket |
             Action::MovePageUp | Action::MovePageDown |
             Action::MoveHalfPageUp | Action::MoveHalfPageDown => {
@@ -414,8 +417,32 @@ impl Editor {
             Action::MoveWordEndBig => {
                 self.move_word_end_big();
             }
+            Action::MoveWordEndBack => {
+                self.move_word_end_back();
+            }
+            Action::MoveWordEndBackBig => {
+                self.move_word_end_back_big();
+            }
             Action::MoveLineFirstNonBlank => {
                 self.move_to_first_non_blank();
+            }
+            Action::MoveLineEndNonBlank => {
+                self.move_to_line_end_non_blank();
+            }
+            Action::MoveLineStartDisplay => {
+                // For now, treat same as MoveLineStart (no line wrapping yet)
+                self.cursor.move_to_line_start();
+            }
+            Action::MoveLineEndDisplay => {
+                // For now, treat same as MoveLineEnd (no line wrapping yet)
+                let line_len = self.buffer.line_len(self.cursor.line);
+                self.cursor.move_to_line_end(line_len);
+            }
+            Action::MoveSentenceForward => {
+                self.move_sentence_forward();
+            }
+            Action::MoveSentenceBackward => {
+                self.move_sentence_backward();
             }
             Action::MoveParagraphForward => {
                 self.move_paragraph_forward();
@@ -894,6 +921,198 @@ impl Editor {
 
             self.cursor.col = col.min(chars.len().saturating_sub(1));
         }
+    }
+
+    fn move_word_end_back(&mut self) {
+        // ge - move to end of previous word
+        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+            let chars: Vec<char> = line_text.chars().collect();
+            if chars.is_empty() || self.cursor.col == 0 {
+                // Try previous line
+                if self.cursor.line > 0 {
+                    self.cursor.line -= 1;
+                    let prev_line_len = self.buffer.line_len(self.cursor.line);
+                    self.cursor.col = prev_line_len.saturating_sub(1);
+                }
+                return;
+            }
+
+            let mut col = self.cursor.col.saturating_sub(1);
+
+            // Skip whitespace
+            while col > 0 && chars[col].is_whitespace() {
+                col -= 1;
+            }
+
+            // Skip to start of word
+            while col > 0 && !chars[col.saturating_sub(1)].is_whitespace() {
+                col -= 1;
+            }
+
+            // Move to end of that word
+            while col < chars.len() - 1 && !chars[col + 1].is_whitespace() {
+                col += 1;
+            }
+
+            self.cursor.col = col;
+        }
+    }
+
+    fn move_word_end_back_big(&mut self) {
+        // gE - move to end of previous WORD
+        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+            let chars: Vec<char> = line_text.chars().collect();
+            if chars.is_empty() || self.cursor.col == 0 {
+                // Try previous line
+                if self.cursor.line > 0 {
+                    self.cursor.line -= 1;
+                    let prev_line_len = self.buffer.line_len(self.cursor.line);
+                    self.cursor.col = prev_line_len.saturating_sub(1);
+                }
+                return;
+            }
+
+            let mut col = self.cursor.col.saturating_sub(1);
+
+            // Skip whitespace
+            while col > 0 && chars[col].is_whitespace() {
+                col -= 1;
+            }
+
+            // Skip to start of WORD
+            while col > 0 && !chars[col.saturating_sub(1)].is_whitespace() {
+                col -= 1;
+            }
+
+            // Move to end of that WORD
+            while col < chars.len() - 1 && !chars[col + 1].is_whitespace() {
+                col += 1;
+            }
+
+            self.cursor.col = col;
+        }
+    }
+
+    fn move_to_line_end_non_blank(&mut self) {
+        // g_ - move to last non-blank character of line
+        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+            let chars: Vec<char> = line_text.chars().collect();
+            if chars.is_empty() {
+                self.cursor.col = 0;
+                return;
+            }
+
+            let mut col = chars.len() - 1;
+
+            // Find last non-whitespace character
+            while col > 0 && chars[col].is_whitespace() {
+                col -= 1;
+            }
+
+            self.cursor.col = col;
+        }
+    }
+
+    fn move_sentence_forward(&mut self) {
+        // ) - move to next sentence
+        // Sentences end with . ! ? followed by space/newline
+        let line_count = self.buffer.line_count();
+        let mut line = self.cursor.line;
+        let mut col = self.cursor.col + 1;
+
+        while line < line_count {
+            if let Some(line_text) = self.buffer.get_line(line) {
+                let chars: Vec<char> = line_text.chars().collect();
+
+                while col < chars.len() {
+                    if matches!(chars[col], '.' | '!' | '?') {
+                        // Check if followed by space or end of line
+                        if col + 1 >= chars.len() || chars[col + 1].is_whitespace() {
+                            // Skip whitespace after sentence end
+                            col += 1;
+                            while col < chars.len() && chars[col].is_whitespace() {
+                                col += 1;
+                            }
+
+                            // If we're at end of line, move to next line
+                            if col >= chars.len() {
+                                line += 1;
+                                col = 0;
+                                // Skip empty lines
+                                while line < line_count {
+                                    if let Some(next_line) = self.buffer.get_line(line) {
+                                        if !next_line.trim().is_empty() {
+                                            break;
+                                        }
+                                    }
+                                    line += 1;
+                                }
+                            }
+
+                            self.cursor.line = line.min(line_count.saturating_sub(1));
+                            self.cursor.col = col;
+                            self.clamp_cursor();
+                            return;
+                        }
+                    }
+                    col += 1;
+                }
+            }
+            line += 1;
+            col = 0;
+        }
+
+        // Reached end of buffer
+        self.cursor.line = line_count.saturating_sub(1);
+        let last_line_len = self.buffer.line_len(self.cursor.line);
+        self.cursor.col = last_line_len.saturating_sub(1);
+        self.clamp_cursor();
+    }
+
+    fn move_sentence_backward(&mut self) {
+        // ( - move to previous sentence
+        if self.cursor.line == 0 && self.cursor.col == 0 {
+            return;
+        }
+
+        let mut line = self.cursor.line;
+        let mut col = self.cursor.col.saturating_sub(1);
+
+        loop {
+            if let Some(line_text) = self.buffer.get_line(line) {
+                let chars: Vec<char> = line_text.chars().collect();
+
+                while col > 0 {
+                    if matches!(chars[col], '.' | '!' | '?') {
+                        // Check if followed by space or end of line
+                        if col + 1 >= chars.len() || chars[col + 1].is_whitespace() {
+                            // Move past the sentence end
+                            col += 1;
+                            while col < chars.len() && chars[col].is_whitespace() {
+                                col += 1;
+                            }
+
+                            self.cursor.line = line;
+                            self.cursor.col = col.min(chars.len().saturating_sub(1));
+                            self.clamp_cursor();
+                            return;
+                        }
+                    }
+                    col = col.saturating_sub(1);
+                }
+            }
+
+            if line == 0 {
+                break;
+            }
+
+            line -= 1;
+            col = self.buffer.line_len(line);
+        }
+
+        // Reached start of buffer
+        self.cursor.line = 0;
+        self.cursor.col = 0;
     }
 
     fn move_paragraph_forward(&mut self) {
