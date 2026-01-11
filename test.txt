@@ -1,0 +1,3 @@
+Hello, Bitsy!
+This is a test file.
+Let's see if the editor works correctly.
