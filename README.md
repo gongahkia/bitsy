@@ -1,4 +1,4 @@
-# Bitsy
+# `Bitsy`
 
 A Vim-compatible text editor written in Rust.
 
