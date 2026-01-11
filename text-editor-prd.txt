@@ -9,8 +9,7 @@
 
 ## Phase 3: Text Buffer & Data Structures (0 tasks remaining - COMPLETE)
 
-## Phase 4: Vim Modal System (1 task remaining)
-(C) 2026-01-09 Write tests for mode transitions and edge cases +vim @testing
+## Phase 4: Vim Modal System (0 tasks remaining - COMPLETE)
 
 ## Phase 5: Vim Motions (10 tasks remaining)
 (A) 2026-01-09 Implement remaining word motions (ge, gE) +vim-motions @implementation
