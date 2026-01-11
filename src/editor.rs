@@ -100,7 +100,13 @@ impl Editor {
             self.handle_command_mode_key(key)?;
         } else {
             let action = map_key(key, &self.mode);
-            self.execute_action(action)?;
+
+            // Handle operator-motion composition
+            if self.pending_operator != PendingOperator::None {
+                self.handle_operator_motion(action)?;
+            } else {
+                self.execute_action(action)?;
+            }
         }
         Ok(())
     }
@@ -174,6 +180,180 @@ impl Editor {
         }
 
         Ok(())
+    }
+
+    fn handle_operator_motion(&mut self, action: Action) -> Result<()> {
+        // Handle operator doubling (dd, yy, cc)
+        let doubled = match (&self.pending_operator, &action) {
+            (PendingOperator::Delete, Action::Delete) => Some("delete_line"),
+            (PendingOperator::Yank, Action::Yank) => Some("yank_line"),
+            (PendingOperator::Change, Action::Change) => Some("change_line"),
+            _ => None,
+        };
+
+        if let Some(op) = doubled {
+            // Operator was doubled, apply to whole line
+            match op {
+                "delete_line" => {
+                    if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+                        self.registers.set_delete(None, RegisterContent::Line(vec![line_text]));
+                    }
+                    // Delete the entire line
+                    let line = self.cursor.line;
+                    if line < self.buffer.line_count() - 1 {
+                        // Not last line - delete line and its newline
+                        self.buffer.delete_range(line, 0, line + 1, 0);
+                    } else if line > 0 {
+                        // Last line - delete from end of previous line
+                        let prev_line_len = self.buffer.line_len(line - 1);
+                        self.buffer.delete_range(line - 1, prev_line_len, line, self.buffer.line_len(line));
+                        self.cursor.line -= 1;
+                    }
+                }
+                "yank_line" => {
+                    if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+                        self.registers.set_yank(None, RegisterContent::Line(vec![line_text]));
+                        self.message = Some("1 line yanked".to_string());
+                    }
+                }
+                "change_line" => {
+                    if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+                        self.registers.set_delete(None, RegisterContent::Line(vec![line_text]));
+                    }
+                    // Delete line content and enter insert mode
+                    let line = self.cursor.line;
+                    let line_len = self.buffer.line_len(line);
+                    if line_len > 0 {
+                        self.buffer.delete_range(line, 0, line, line_len);
+                    }
+                    self.cursor.col = 0;
+                    self.mode = Mode::Insert;
+                }
+                _ => {}
+            }
+            self.pending_operator = PendingOperator::None;
+            self.clamp_cursor();
+            return Ok(());
+        }
+
+        // Handle Escape to cancel operator
+        if action == Action::EnterNormalMode {
+            self.pending_operator = PendingOperator::None;
+            return Ok(());
+        }
+
+        // Apply operator to motion
+        let start_line = self.cursor.line;
+        let start_col = self.cursor.col;
+
+        // Execute the motion
+        match action {
+            // Movement actions
+            Action::MoveUp | Action::MoveDown | Action::MoveLeft | Action::MoveRight |
+            Action::MoveWordForward | Action::MoveWordBackward | Action::MoveWordEnd |
+            Action::MoveWordForwardBig | Action::MoveWordBackwardBig | Action::MoveWordEndBig |
+            Action::MoveLineStart | Action::MoveLineFirstNonBlank | Action::MoveLineEnd |
+            Action::MoveFileStart | Action::MoveFileEnd |
+            Action::MoveParagraphForward | Action::MoveParagraphBackward |
+            Action::MoveMatchingBracket |
+            Action::MovePageUp | Action::MovePageDown |
+            Action::MoveHalfPageUp | Action::MoveHalfPageDown => {
+                // Save current position
+                let old_cursor = self.cursor;
+
+                // Execute the motion
+                self.execute_action(action)?;
+
+                // Get the range
+                let end_line = self.cursor.line;
+                let end_col = self.cursor.col;
+
+                // Apply the operator to the range
+                self.apply_operator_to_range(start_line, start_col, end_line, end_col)?;
+
+                // Restore cursor for delete/change
+                if self.pending_operator == PendingOperator::Delete || self.pending_operator == PendingOperator::Change {
+                    self.cursor = old_cursor;
+                }
+
+                self.pending_operator = PendingOperator::None;
+            }
+            _ => {
+                // Not a motion, cancel the operator
+                self.pending_operator = PendingOperator::None;
+            }
+        }
+
+        self.clamp_cursor();
+        Ok(())
+    }
+
+    fn apply_operator_to_range(&mut self, start_line: usize, start_col: usize, end_line: usize, end_col: usize) -> Result<()> {
+        // Normalize range (ensure start comes before end)
+        let (start_line, start_col, end_line, end_col) = if start_line > end_line || (start_line == end_line && start_col > end_col) {
+            (end_line, end_col, start_line, start_col)
+        } else {
+            (start_line, start_col, end_line, end_col)
+        };
+
+        match self.pending_operator {
+            PendingOperator::Delete => {
+                // Get the text being deleted
+                let deleted_text = self.get_range_text(start_line, start_col, end_line, end_col);
+                self.registers.set_delete(None, RegisterContent::Char(deleted_text));
+
+                // Delete the range
+                self.buffer.delete_range(start_line, start_col, end_line, end_col);
+            }
+            PendingOperator::Yank => {
+                // Get the text being yanked
+                let yanked_text = self.get_range_text(start_line, start_col, end_line, end_col);
+                let char_count = yanked_text.len();
+                self.registers.set_yank(None, RegisterContent::Char(yanked_text));
+                self.message = Some(format!("Yanked {} characters", char_count));
+            }
+            PendingOperator::Change => {
+                // Get the text being deleted
+                let deleted_text = self.get_range_text(start_line, start_col, end_line, end_col);
+                self.registers.set_delete(None, RegisterContent::Char(deleted_text));
+
+                // Delete the range and enter insert mode
+                self.buffer.delete_range(start_line, start_col, end_line, end_col);
+                self.mode = Mode::Insert;
+            }
+            PendingOperator::None => {}
+        }
+
+        Ok(())
+    }
+
+    fn get_range_text(&self, start_line: usize, start_col: usize, end_line: usize, end_col: usize) -> String {
+        if start_line == end_line {
+            // Same line
+            if let Some(line_text) = self.buffer.get_line(start_line) {
+                let end = end_col.min(line_text.len());
+                let start = start_col.min(line_text.len());
+                return line_text[start..end].to_string();
+            }
+        } else {
+            // Multiple lines
+            let mut result = String::new();
+            for line_idx in start_line..=end_line {
+                if let Some(line_text) = self.buffer.get_line(line_idx) {
+                    if line_idx == start_line {
+                        result.push_str(&line_text[start_col.min(line_text.len())..]);
+                        result.push('\n');
+                    } else if line_idx == end_line {
+                        result.push_str(&line_text[..end_col.min(line_text.len())]);
+                    } else {
+                        result.push_str(&line_text);
+                        result.push('\n');
+                    }
+                }
+            }
+            return result;
+        }
+        String::new()
     }
 
     fn execute_action(&mut self, action: Action) -> Result<()> {

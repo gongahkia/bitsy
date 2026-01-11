@@ -3,93 +3,48 @@
 # Stack: Rust (recommended) or Zig/C for performance
 # Max Implementation: 150 tasks
 
-## Phase 1: Project Foundation (15 tasks)
-(A) 2026-01-09 Research and select language (Rust recommended for safety+performance, Zig for simplicity, C for control) +foundation @research
-(A) 2026-01-09 Evaluate terminal rendering libraries (Rust: crossterm/termion, Zig: libvaxis, C: ncurses) +foundation @research
-(A) 2026-01-09 Set up project structure with build system (Cargo for Rust, Zig build, Make for C) +foundation @setup
-(A) 2026-01-09 Configure development environment with linter and formatter +foundation @setup
-(B) 2026-01-09 Initialize version control and define branching strategy +foundation @setup
-(B) 2026-01-09 Create project architecture document defining module boundaries +foundation @design
-(B) 2026-01-09 Design event loop architecture (input -> process -> render cycle) +foundation @design
-(B) 2026-01-09 Set up logging infrastructure for debugging +foundation @setup
-(C) 2026-01-09 Create error handling strategy and custom error types +foundation @design
+## Phase 1: Project Foundation (3 tasks remaining)
 (C) 2026-01-09 Set up unit testing framework and CI pipeline +foundation @testing
 (C) 2026-01-09 Configure cross-platform build targets (Linux, macOS, Windows) +foundation @setup
 (C) 2026-01-09 Research tree-sitter for syntax highlighting integration +foundation @research
-(C) 2026-01-09 Research LSP client libraries (tower-lsp for Rust) +foundation @research
-(C) 2026-01-09 Define configuration file format (TOML/YAML/custom) +foundation @design
-(C) 2026-01-09 Create basic project README with build instructions +foundation @docs
 
-## Phase 2: Core Editor Infrastructure (12 tasks)
-(A) 2026-01-09 Implement terminal initialization and cleanup (raw mode, alternate screen) +core @implementation
-(A) 2026-01-09 Create main event loop with input polling and rendering cycle +core @implementation
-(A) 2026-01-09 Implement keyboard input capture and key mapping system +core @implementation
-(A) 2026-01-09 Build terminal screen buffer and rendering abstraction +core @implementation
-(A) 2026-01-09 Implement cursor positioning and movement in terminal +core @implementation
-(B) 2026-01-09 Create color and styling system for terminal output +core @implementation
-(B) 2026-01-09 Implement status line rendering (mode, file, line/col, modified flag) +core @implementation
-(B) 2026-01-09 Build command line area for user input and messages +core @implementation
-(B) 2026-01-09 Create viewport system for scrolling through large files +core @implementation
+## Phase 2: Core Editor Infrastructure (1 task remaining)
 (C) 2026-01-09 Implement line numbering display (absolute and relative) +core @implementation
-(C) 2026-01-09 Build message/notification system for user feedback +core @implementation
-(C) 2026-01-09 Create graceful shutdown and cleanup handlers +core @implementation
 
-## Phase 3: Text Buffer & Data Structures (10 tasks)
-(A) 2026-01-09 Implement rope or gap buffer data structure for efficient text storage +buffer @implementation
-(A) 2026-01-09 Create text buffer API (insert, delete, get_line, get_range) +buffer @implementation
-(A) 2026-01-09 Implement UTF-8 handling and character boundary detection +buffer @implementation
-(A) 2026-01-09 Build cursor position tracking (line, column, byte offset) +buffer @implementation
+## Phase 3: Text Buffer & Data Structures (3 tasks remaining)
 (A) 2026-01-09 Implement line ending handling (LF, CRLF, CR) for cross-platform support +buffer @implementation
 (B) 2026-01-09 Create selection/range tracking for visual mode +buffer @implementation
-(B) 2026-01-09 Build efficient line indexing for O(log n) line access +buffer @implementation
-(B) 2026-01-09 Implement buffer dirty flag and modification tracking +buffer @implementation
-(C) 2026-01-09 Create buffer metadata (file path, encoding, file type) +buffer @implementation
 (C) 2026-01-09 Write comprehensive buffer unit tests for edge cases +buffer @testing
 
-## Phase 4: Vim Modal System (8 tasks)
-(A) 2026-01-09 Implement mode state machine (Normal, Insert, Visual, VisualLine, VisualBlock, Command) +vim @implementation
-(A) 2026-01-09 Create mode switching logic and key bindings (i, I, a, A, o, O, v, V, Ctrl-v, Esc, :) +vim @implementation
-(A) 2026-01-09 Build mode indicator in status line +vim @implementation
-(B) 2026-01-09 Implement Insert mode text entry and basic editing +vim @implementation
+## Phase 4: Vim Modal System (4 tasks remaining)
 (B) 2026-01-09 Create Visual mode selection rendering +vim @implementation
 (B) 2026-01-09 Implement VisualLine mode full-line selection +vim @implementation
 (C) 2026-01-09 Build VisualBlock mode rectangular selection +vim @implementation
 (C) 2026-01-09 Write tests for mode transitions and edge cases +vim @testing
 
-## Phase 5: Vim Motions (15 tasks)
-(A) 2026-01-09 Implement basic character motions (h, j, k, l) +vim-motions @implementation
-(A) 2026-01-09 Create word motions (w, W, b, B, e, E, ge, gE) +vim-motions @implementation
-(A) 2026-01-09 Build line motions (0, ^, $, g_, g0, g$) +vim-motions @implementation
-(A) 2026-01-09 Implement paragraph motions ({, }) +vim-motions @implementation
+## Phase 5: Vim Motions (10 tasks remaining)
+(A) 2026-01-09 Implement remaining word motions (ge, gE) +vim-motions @implementation
+(A) 2026-01-09 Build remaining line motions (g_, g0, g$) +vim-motions @implementation
 (A) 2026-01-09 Create sentence motions (, ) +vim-motions @implementation
-(A) 2026-01-09 Build vertical motions (gg, G, :line, line%, Ctrl-d, Ctrl-u, Ctrl-f, Ctrl-b) +vim-motions @implementation
+(A) 2026-01-09 Implement remaining vertical motions (:line, line%) +vim-motions @implementation
 (B) 2026-01-09 Implement character search motions (f, F, t, T, ;, ,) +vim-motions @implementation
-(B) 2026-01-09 Create matching bracket motion (%) +vim-motions @implementation
 (B) 2026-01-09 Build search motions (n, N) +vim-motions @implementation
 (B) 2026-01-09 Implement mark jump motions (', `, g;, g,) +vim-motions @implementation
 (C) 2026-01-09 Create motion count support (5j, 3w, 2{) +vim-motions @implementation
 (C) 2026-01-09 Build screen position motions (H, M, L, zt, zz, zb) +vim-motions @implementation
 (C) 2026-01-09 Implement text object motions (aw, iw, ap, ip, a", i", a', i', a), i), etc) +vim-motions @implementation
-(C) 2026-01-09 Create inclusive/exclusive motion handling +vim-motions @implementation
-(C) 2026-01-09 Write comprehensive motion tests +vim-motions @testing
 
-## Phase 6: Vim Operators (10 tasks)
-(A) 2026-01-09 Implement delete operator (d) with motion support +vim-operators @implementation
-(A) 2026-01-09 Create change operator (c) with motion support +vim-operators @implementation
-(A) 2026-01-09 Build yank operator (y) with motion support +vim-operators @implementation
-(A) 2026-01-09 Implement paste operators (p, P) +vim-operators @implementation
+## Phase 6: Vim Operators (8 tasks remaining)
+(A) 2026-01-09 Complete operator-motion composition (d/c/y + motion) +vim-operators @implementation
 (B) 2026-01-09 Create case change operators (gu, gU, g~) +vim-operators @implementation
 (B) 2026-01-09 Build indent operators (>, <, =) +vim-operators @implementation
-(B) 2026-01-09 Implement join lines operator (J, gJ) +vim-operators @implementation
+(B) 2026-01-09 Implement gJ (join without space) +vim-operators @implementation
 (B) 2026-01-09 Create replace operator (r, R) +vim-operators @implementation
-(C) 2026-01-09 Build operator count and repeat support (d3w, 2dd, .) +vim-operators @implementation
+(C) 2026-01-09 Build operator count support (d3w, 2dd, 3p) +vim-operators @implementation
+(C) 2026-01-09 Build motion count support (5j, 3w, 2{) +vim-operators @implementation
 (C) 2026-01-09 Implement dot repeat command (.) for last change +vim-operators @implementation
 
-## Phase 7: Command Mode (12 tasks)
-(A) 2026-01-09 Create command-line parser and command registry +vim-command @implementation
-(A) 2026-01-09 Implement :write (:w) command for saving files +vim-command @implementation
-(A) 2026-01-09 Implement :quit (:q, :q!, :wq, :x) commands +vim-command @implementation
-(A) 2026-01-09 Create :edit (:e) command for opening files +vim-command @implementation
+## Phase 7: Command Mode (8 tasks remaining)
 (B) 2026-01-09 Build :substitute (:s, :%s) command for search and replace +vim-command @implementation
 (B) 2026-01-09 Implement range support for commands (1,10d, %s, '<,'>s) +vim-command @implementation
 (B) 2026-01-09 Create :set command for runtime configuration +vim-command @implementation
@@ -99,11 +54,9 @@
 (C) 2026-01-09 Implement command-line history with up/down arrows +vim-command @implementation
 (C) 2026-01-09 Build command-line tab completion +vim-command @implementation
 
-## Phase 8: Registers & Clipboard (6 tasks)
-(A) 2026-01-09 Implement named register system (a-z, 0-9) +vim-registers @implementation
-(A) 2026-01-09 Create default register behavior and register selection ("a, "b) +vim-registers @implementation
+## Phase 8: Registers & Clipboard (4 tasks remaining)
+(A) 2026-01-09 Implement register selection syntax ("a, "b, "0) +vim-registers @implementation
 (A) 2026-01-09 Build system clipboard integration ("+ and "* registers) +vim-registers @implementation
-(B) 2026-01-09 Implement yank/delete register population +vim-registers @implementation
 (B) 2026-01-09 Create black hole register (_) and read-only registers (%, #, :, .) +vim-registers @implementation
 (C) 2026-01-09 Build register viewer command (:reg) +vim-registers @implementation
 
