@@ -9,6 +9,7 @@ pub enum Mode {
     VisualLine,
     VisualBlock,
     Command,
+    Search,
 }
 
 impl Mode {
@@ -21,6 +22,7 @@ impl Mode {
             Mode::VisualLine => "VISUAL LINE",
             Mode::VisualBlock => "VISUAL BLOCK",
             Mode::Command => "COMMAND",
+            Mode::Search => "SEARCH",
         }
     }
 }

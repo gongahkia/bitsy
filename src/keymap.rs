@@ -94,6 +94,14 @@ pub enum Action {
     SaveFile,
     Quit,
 
+    // Search
+    SearchForward,       // / (initiate forward search)
+    SearchBackward,      // ? (initiate backward search)
+    SearchNext,          // n (repeat last search)
+    SearchPrevious,      // N (repeat last search in opposite direction)
+    SearchWordForward,   // * (search word under cursor forward)
+    SearchWordBackward,  // # (search word under cursor backward)
+
     // Other
     RepeatLastChange,    // . (dot command)
     None,
@@ -108,6 +116,7 @@ pub fn map_key(key: KeyEvent, mode: &crate::mode::Mode) -> Action {
         Mode::Replace => map_replace_mode_key(key),
         Mode::Visual | Mode::VisualLine | Mode::VisualBlock => map_visual_mode_key(key),
         Mode::Command => Action::None, // Command mode has its own input handling
+        Mode::Search => Action::None, // Search mode has its own input handling
     }
 }
 
@@ -176,6 +185,14 @@ fn map_normal_mode_key(key: KeyEvent) -> Action {
         KeyCode::Char('>') => Action::Indent,
         KeyCode::Char('<') => Action::Dedent,
         KeyCode::Char('=') => Action::AutoIndent,
+
+        // Search
+        KeyCode::Char('/') => Action::SearchForward,
+        KeyCode::Char('?') => Action::SearchBackward,
+        KeyCode::Char('n') => Action::SearchNext,
+        KeyCode::Char('N') => Action::SearchPrevious,
+        KeyCode::Char('*') => Action::SearchWordForward,
+        KeyCode::Char('#') => Action::SearchWordBackward,
 
         _ => Action::None,
     }

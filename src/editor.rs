@@ -49,6 +49,9 @@ pub struct Editor {
     pending_key: Option<char>,
     count: usize, // Count for operator/motion repetition (e.g., 3dw, 5j)
     last_change: Option<(Action, usize)>, // Last change for dot repeat (action, count)
+    search_buffer: String,
+    search_pattern: Option<String>,
+    search_forward: bool, // Direction of last search
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -92,6 +95,9 @@ impl Editor {
             pending_key: None,
             count: 0,
             last_change: None,
+            search_buffer: String::new(),
+            search_pattern: None,
+            search_forward: true,
         })
     }
 
@@ -133,6 +139,8 @@ impl Editor {
     fn handle_key(&mut self, key: KeyEvent) -> Result<()> {
         if self.mode == Mode::Command {
             self.handle_command_mode_key(key)?;
+        } else if self.mode == Mode::Search {
+            self.handle_search_mode_key(key)?;
         } else {
             // Handle count input (digits in normal mode)
             if self.mode == Mode::Normal {
@@ -230,6 +238,34 @@ impl Editor {
         Ok(())
     }
 
+    fn handle_search_mode_key(&mut self, key: KeyEvent) -> Result<()> {
+        match key.code {
+            KeyCode::Esc => {
+                self.mode = Mode::Normal;
+                self.search_buffer.clear();
+            }
+            KeyCode::Enter => {
+                if !self.search_buffer.is_empty() {
+                    self.search_pattern = Some(self.search_buffer.clone());
+                    self.execute_search()?;
+                }
+                self.mode = Mode::Normal;
+                self.search_buffer.clear();
+            }
+            KeyCode::Char(c) => {
+                self.search_buffer.push(c);
+            }
+            KeyCode::Backspace => {
+                self.search_buffer.pop();
+                if self.search_buffer.is_empty() {
+                    self.mode = Mode::Normal;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
     fn execute_command(&mut self) -> Result<()> {
         let cmd = parse_command(&self.command_buffer)?;
 
@@ -281,6 +317,110 @@ impl Editor {
         }
 
         Ok(())
+    }
+
+    fn execute_search(&mut self) -> Result<()> {
+        if let Some(pattern) = self.search_pattern.clone() {
+            let start_line = self.cursor.line;
+            let start_col = if self.search_forward {
+                self.cursor.col + 1
+            } else {
+                self.cursor.col.saturating_sub(1)
+            };
+
+            if self.search_forward {
+                // Search forward
+                if self.search_forward_from(start_line, start_col, &pattern) {
+                    return Ok(());
+                }
+                self.message = Some("Pattern not found".to_string());
+            } else {
+                // Search backward
+                if self.search_backward_from(start_line, start_col, &pattern) {
+                    return Ok(());
+                }
+                self.message = Some("Pattern not found".to_string());
+            }
+        }
+        Ok(())
+    }
+
+    fn search_forward_from(&mut self, start_line: usize, start_col: usize, pattern: &str) -> bool {
+        let line_count = self.buffer.line_count();
+
+        // Search from current position to end of current line
+        if let Some(line_text) = self.buffer.get_line(start_line) {
+            if let Some(pos) = line_text[start_col.min(line_text.len())..].find(pattern) {
+                self.cursor.line = start_line;
+                self.cursor.col = start_col + pos;
+                return true;
+            }
+        }
+
+        // Search remaining lines
+        for line_idx in (start_line + 1)..line_count {
+            if let Some(line_text) = self.buffer.get_line(line_idx) {
+                if let Some(pos) = line_text.find(pattern) {
+                    self.cursor.line = line_idx;
+                    self.cursor.col = pos;
+                    return true;
+                }
+            }
+        }
+
+        // Wrap around to start
+        for line_idx in 0..start_line {
+            if let Some(line_text) = self.buffer.get_line(line_idx) {
+                if let Some(pos) = line_text.find(pattern) {
+                    self.cursor.line = line_idx;
+                    self.cursor.col = pos;
+                    self.message = Some("search hit BOTTOM, continuing at TOP".to_string());
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
+    fn search_backward_from(&mut self, start_line: usize, start_col: usize, pattern: &str) -> bool {
+        // Search from current position backwards in current line
+        if let Some(line_text) = self.buffer.get_line(start_line) {
+            let search_text = &line_text[..start_col.min(line_text.len())];
+            if let Some(pos) = search_text.rfind(pattern) {
+                self.cursor.line = start_line;
+                self.cursor.col = pos;
+                return true;
+            }
+        }
+
+        // Search previous lines
+        if start_line > 0 {
+            for line_idx in (0..start_line).rev() {
+                if let Some(line_text) = self.buffer.get_line(line_idx) {
+                    if let Some(pos) = line_text.rfind(pattern) {
+                        self.cursor.line = line_idx;
+                        self.cursor.col = pos;
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // Wrap around to end
+        let line_count = self.buffer.line_count();
+        for line_idx in (start_line + 1..line_count).rev() {
+            if let Some(line_text) = self.buffer.get_line(line_idx) {
+                if let Some(pos) = line_text.rfind(pattern) {
+                    self.cursor.line = line_idx;
+                    self.cursor.col = pos;
+                    self.message = Some("search hit TOP, continuing at BOTTOM".to_string());
+                    return true;
+                }
+            }
+        }
+
+        false
     }
 
     fn handle_operator_motion(&mut self, action: Action) -> Result<()> {
@@ -1160,6 +1300,84 @@ impl Editor {
                 }
             }
 
+            // Search
+            Action::SearchForward => {
+                self.mode = Mode::Search;
+                self.search_buffer.clear();
+                self.search_forward = true;
+            }
+            Action::SearchBackward => {
+                self.mode = Mode::Search;
+                self.search_buffer.clear();
+                self.search_forward = false;
+            }
+            Action::SearchNext => {
+                // Repeat last search in same direction
+                if self.search_pattern.is_some() {
+                    self.execute_search()?;
+                }
+            }
+            Action::SearchPrevious => {
+                // Repeat last search in opposite direction
+                if self.search_pattern.is_some() {
+                    self.search_forward = !self.search_forward;
+                    self.execute_search()?;
+                    self.search_forward = !self.search_forward; // Restore direction
+                }
+            }
+            Action::SearchWordForward => {
+                // Search for word under cursor forward
+                if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+                    let chars: Vec<char> = line_text.chars().collect();
+                    if self.cursor.col < chars.len() {
+                        // Extract word under cursor
+                        let mut start = self.cursor.col;
+                        let mut end = self.cursor.col;
+
+                        // Find word boundaries
+                        while start > 0 && !chars[start - 1].is_whitespace() && chars[start - 1].is_alphanumeric() {
+                            start -= 1;
+                        }
+                        while end < chars.len() && !chars[end].is_whitespace() && chars[end].is_alphanumeric() {
+                            end += 1;
+                        }
+
+                        let word: String = chars[start..end].iter().collect();
+                        if !word.is_empty() {
+                            self.search_pattern = Some(word);
+                            self.search_forward = true;
+                            self.execute_search()?;
+                        }
+                    }
+                }
+            }
+            Action::SearchWordBackward => {
+                // Search for word under cursor backward
+                if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+                    let chars: Vec<char> = line_text.chars().collect();
+                    if self.cursor.col < chars.len() {
+                        // Extract word under cursor
+                        let mut start = self.cursor.col;
+                        let mut end = self.cursor.col;
+
+                        // Find word boundaries
+                        while start > 0 && !chars[start - 1].is_whitespace() && chars[start - 1].is_alphanumeric() {
+                            start -= 1;
+                        }
+                        while end < chars.len() && !chars[end].is_whitespace() && chars[end].is_alphanumeric() {
+                            end += 1;
+                        }
+
+                        let word: String = chars[start..end].iter().collect();
+                        if !word.is_empty() {
+                            self.search_pattern = Some(word);
+                            self.search_forward = false;
+                            self.execute_search()?;
+                        }
+                    }
+                }
+            }
+
             _ => {}
         }
 
@@ -1950,6 +2168,13 @@ impl Editor {
         if self.mode == Mode::Command {
             let cmd_line = format!(":{}", self.command_buffer);
             self.terminal.print(&cmd_line)?;
+        } else if self.mode == Mode::Search {
+            let search_line = if self.search_forward {
+                format!("/{}", self.search_buffer)
+            } else {
+                format!("?{}", self.search_buffer)
+            };
+            self.terminal.print(&search_line)?;
         } else if let Some(ref msg) = self.message {
             self.terminal.print(msg)?;
             self.message = None; // Clear message after displaying

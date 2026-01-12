@@ -11,8 +11,7 @@
 
 ## Phase 4: Vim Modal System (0 tasks remaining - COMPLETE)
 
-## Phase 5: Vim Motions (4 tasks remaining)
-(B) 2026-01-09 Build search motions (n, N) +vim-motions @implementation
+## Phase 5: Vim Motions (3 tasks remaining)
 (B) 2026-01-09 Implement mark jump motions (', `, g;, g,) +vim-motions @implementation
 (C) 2026-01-09 Create motion count support (5j, 3w, 2{) +vim-motions @implementation
 (C) 2026-01-09 Implement text object motions (aw, iw, ap, ip, a", i", a', i', a), i), etc) +vim-motions @implementation
