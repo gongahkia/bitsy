@@ -24,8 +24,7 @@
 (C) 2026-01-09 Implement command-line history with up/down arrows +vim-command @implementation
 (C) 2026-01-09 Build command-line tab completion +vim-command @implementation
 
-## Phase 8: Registers & Clipboard (4 tasks remaining)
-(A) 2026-01-09 Implement register selection syntax ("a, "b, "0) +vim-registers @implementation
+## Phase 8: Registers & Clipboard (3 tasks remaining)
 (A) 2026-01-09 Build system clipboard integration ("+ and "* registers) +vim-registers @implementation
 (B) 2026-01-09 Create black hole register (_) and read-only registers (%, #, :, .) +vim-registers @implementation
 (C) 2026-01-09 Build register viewer command (:reg) +vim-registers @implementation

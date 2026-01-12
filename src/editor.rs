@@ -53,6 +53,8 @@ pub struct Editor {
     search_pattern: Option<String>,
     search_forward: bool, // Direction of last search
     pending_text_object: Option<TextObjectModifier>, // Waiting for text object (a or i)
+    pending_register: Option<char>, // Register selected with " prefix
+    waiting_for_register: bool, // True when " was just pressed
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -106,6 +108,8 @@ impl Editor {
             search_pattern: None,
             search_forward: true,
             pending_text_object: None,
+            pending_register: None,
+            waiting_for_register: false,
         })
     }
 
@@ -150,6 +154,23 @@ impl Editor {
         } else if self.mode == Mode::Search {
             self.handle_search_mode_key(key)?;
         } else {
+            // Handle register selection (")
+            if self.mode == Mode::Normal && self.waiting_for_register {
+                if let KeyCode::Char(c) = key.code {
+                    self.pending_register = Some(c);
+                    self.waiting_for_register = false;
+                    return Ok(());
+                }
+            }
+
+            // Check for " to start register selection
+            if self.mode == Mode::Normal && !self.waiting_for_register {
+                if let KeyCode::Char('"') = key.code {
+                    self.waiting_for_register = true;
+                    return Ok(());
+                }
+            }
+
             // Handle count input (digits in normal mode)
             if self.mode == Mode::Normal {
                 if let KeyCode::Char(c) = key.code {
