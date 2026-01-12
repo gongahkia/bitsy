@@ -163,3 +163,9 @@
 # Phases 1-8: 40 tasks remaining (48 completed)
 # Phases 9-23: 102 tasks remaining (not yet started)
 # Total Remaining: 142 tasks
+(C) 2026-01-12 Write tests for vertical motions (:line, %) +testing @implementation
+(C) 2026-01-12 Write tests for search motions (/, ?, n, N, *, #) +testing @implementation
+(C) 2026-01-12 Write tests for text object motions (aw, iw, ap, ip, etc) +testing @implementation  
+(C) 2026-01-12 Write tests for :substitute command +testing @implementation
+(C) 2026-01-12 Write tests for :set command +testing @implementation
+(C) 2026-01-12 Write tests for register selection syntax +testing @implementation
