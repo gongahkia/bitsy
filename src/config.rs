@@ -12,6 +12,12 @@ pub enum LineNumberMode {
 pub struct Config {
     pub line_numbers: LineNumberMode,
     pub show_current_line: bool,
+    pub tab_width: usize,
+    pub expand_tab: bool, // Use spaces instead of tabs
+    pub auto_indent: bool,
+    pub highlight_search: bool,
+    pub ignore_case: bool,
+    pub smart_case: bool, // Override ignorecase when search has uppercase
 }
 
 impl Config {
@@ -19,6 +25,88 @@ impl Config {
         Self {
             line_numbers: LineNumberMode::Absolute,
             show_current_line: true,
+            tab_width: 4,
+            expand_tab: true,
+            auto_indent: true,
+            highlight_search: true,
+            ignore_case: false,
+            smart_case: true,
+        }
+    }
+
+    pub fn set(&mut self, option: &str, value: Option<&str>) -> Result<(), String> {
+        match option {
+            "number" | "nu" => {
+                self.line_numbers = LineNumberMode::Absolute;
+                Ok(())
+            }
+            "nonumber" | "nonu" => {
+                self.line_numbers = LineNumberMode::None;
+                Ok(())
+            }
+            "relativenumber" | "rnu" => {
+                self.line_numbers = LineNumberMode::Relative;
+                Ok(())
+            }
+            "norelativenumber" | "nornu" => {
+                if self.line_numbers == LineNumberMode::Relative || self.line_numbers == LineNumberMode::RelativeAbsolute {
+                    self.line_numbers = LineNumberMode::Absolute;
+                }
+                Ok(())
+            }
+            "expandtab" | "et" => {
+                self.expand_tab = true;
+                Ok(())
+            }
+            "noexpandtab" | "noet" => {
+                self.expand_tab = false;
+                Ok(())
+            }
+            "autoindent" | "ai" => {
+                self.auto_indent = true;
+                Ok(())
+            }
+            "noautoindent" | "noai" => {
+                self.auto_indent = false;
+                Ok(())
+            }
+            "hlsearch" | "hls" => {
+                self.highlight_search = true;
+                Ok(())
+            }
+            "nohlsearch" | "nohls" => {
+                self.highlight_search = false;
+                Ok(())
+            }
+            "ignorecase" | "ic" => {
+                self.ignore_case = true;
+                Ok(())
+            }
+            "noignorecase" | "noic" => {
+                self.ignore_case = false;
+                Ok(())
+            }
+            "smartcase" | "scs" => {
+                self.smart_case = true;
+                Ok(())
+            }
+            "nosmartcase" | "noscs" => {
+                self.smart_case = false;
+                Ok(())
+            }
+            "tabstop" | "ts" => {
+                if let Some(val) = value {
+                    if let Ok(width) = val.parse::<usize>() {
+                        self.tab_width = width.max(1).min(16);
+                        Ok(())
+                    } else {
+                        Err(format!("Invalid value for tabstop: {}", val))
+                    }
+                } else {
+                    Err("tabstop requires a value".to_string())
+                }
+            }
+            _ => Err(format!("Unknown option: {}", option))
         }
     }
 

@@ -414,6 +414,16 @@ impl Editor {
                     self.message = Some("Pattern not found".to_string());
                 }
             }
+            Command::Set { option, value } => {
+                match self.config.set(&option, value.as_deref()) {
+                    Ok(()) => {
+                        self.message = Some(format!("{} set", option));
+                    }
+                    Err(e) => {
+                        self.message = Some(e);
+                    }
+                }
+            }
             Command::Unknown(cmd) => {
                 self.message = Some(format!("Unknown command: {}", cmd));
             }

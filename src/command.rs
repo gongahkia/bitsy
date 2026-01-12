@@ -11,6 +11,7 @@ pub enum Command {
     Edit(String),
     GoToLine(usize),
     Substitute { pattern: String, replacement: String, global: bool, all_lines: bool },
+    Set { option: String, value: Option<String> },
     Unknown(String),
 }
 
@@ -44,6 +45,11 @@ pub fn parse_command(input: &str) -> Result<Command> {
                 Ok(Command::Edit(filename.trim().to_string()))
             } else if let Some(filename) = input.strip_prefix("edit ") {
                 Ok(Command::Edit(filename.trim().to_string()))
+            } else if let Some(set_args) = input.strip_prefix("set ") {
+                parse_set(set_args.trim())
+            } else if input == "set" {
+                // :set with no args - TODO: show current settings
+                Ok(Command::Unknown("set".to_string()))
             } else {
                 Ok(Command::Unknown(input.to_string()))
             }
@@ -73,4 +79,19 @@ fn parse_substitute(input: &str) -> Result<Command> {
         global,
         all_lines,
     })
+}
+
+fn parse_set(args: &str) -> Result<Command> {
+    // Parse set command: "option" or "option=value"
+    if let Some((option, value)) = args.split_once('=') {
+        Ok(Command::Set {
+            option: option.trim().to_string(),
+            value: Some(value.trim().to_string()),
+        })
+    } else {
+        Ok(Command::Set {
+            option: args.to_string(),
+            value: None,
+        })
+    }
 }
