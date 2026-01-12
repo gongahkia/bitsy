@@ -901,28 +901,52 @@ impl Editor {
                 self.cursor.move_to_line_end(line_len);
             }
             Action::MoveSentenceForward => {
-                self.move_sentence_forward();
+                let count = if self.count == 0 { 1 } else { self.count };
+                for _ in 0..count {
+                    self.move_sentence_forward();
+                }
             }
             Action::MoveSentenceBackward => {
-                self.move_sentence_backward();
+                let count = if self.count == 0 { 1 } else { self.count };
+                for _ in 0..count {
+                    self.move_sentence_backward();
+                }
             }
             Action::FindChar(ch) => {
-                self.find_char(ch, FindDirection::Forward);
+                let count = if self.count == 0 { 1 } else { self.count };
+                for _ in 0..count {
+                    self.find_char(ch, FindDirection::Forward);
+                }
             }
             Action::FindCharBack(ch) => {
-                self.find_char(ch, FindDirection::Backward);
+                let count = if self.count == 0 { 1 } else { self.count };
+                for _ in 0..count {
+                    self.find_char(ch, FindDirection::Backward);
+                }
             }
             Action::TillChar(ch) => {
-                self.find_char(ch, FindDirection::Till);
+                let count = if self.count == 0 { 1 } else { self.count };
+                for _ in 0..count {
+                    self.find_char(ch, FindDirection::Till);
+                }
             }
             Action::TillCharBack(ch) => {
-                self.find_char(ch, FindDirection::TillBack);
+                let count = if self.count == 0 { 1 } else { self.count };
+                for _ in 0..count {
+                    self.find_char(ch, FindDirection::TillBack);
+                }
             }
             Action::RepeatLastFind => {
-                self.repeat_last_find(false);
+                let count = if self.count == 0 { 1 } else { self.count };
+                for _ in 0..count {
+                    self.repeat_last_find(false);
+                }
             }
             Action::RepeatLastFindReverse => {
-                self.repeat_last_find(true);
+                let count = if self.count == 0 { 1 } else { self.count };
+                for _ in 0..count {
+                    self.repeat_last_find(true);
+                }
             }
             Action::MoveToScreenTop => {
                 self.move_to_screen_top();
@@ -943,10 +967,16 @@ impl Editor {
                 self.scroll_bottom_to_screen();
             }
             Action::MoveParagraphForward => {
-                self.move_paragraph_forward();
+                let count = if self.count == 0 { 1 } else { self.count };
+                for _ in 0..count {
+                    self.move_paragraph_forward();
+                }
             }
             Action::MoveParagraphBackward => {
-                self.move_paragraph_backward();
+                let count = if self.count == 0 { 1 } else { self.count };
+                for _ in 0..count {
+                    self.move_paragraph_backward();
+                }
             }
             Action::MoveMatchingBracket => {
                 self.move_to_matching_bracket();
