@@ -10,6 +10,7 @@ pub enum Command {
     ForceQuit,
     Edit(String),
     GoToLine(usize),
+    Substitute { pattern: String, replacement: String, global: bool, all_lines: bool },
     Unknown(String),
 }
 
@@ -29,6 +30,11 @@ pub fn parse_command(input: &str) -> Result<Command> {
         "wq" | "x" => Ok(Command::WriteQuit),
         "q!" => Ok(Command::ForceQuit),
         _ => {
+            // Try to parse substitute command
+            if input.starts_with("s/") || input.starts_with("%s/") {
+                return parse_substitute(input);
+            }
+
             // Try to parse as line number
             if let Ok(line_num) = input.parse::<usize>() {
                 return Ok(Command::GoToLine(line_num));
@@ -43,4 +49,28 @@ pub fn parse_command(input: &str) -> Result<Command> {
             }
         }
     }
+}
+
+fn parse_substitute(input: &str) -> Result<Command> {
+    let all_lines = input.starts_with("%s/");
+    let input = if all_lines { &input[2..] } else { &input[1..] };
+
+    // Parse s/pattern/replacement/flags
+    let parts: Vec<&str> = input.split('/').collect();
+    if parts.len() < 3 {
+        return Err(Error::ParseError("Invalid substitute syntax".to_string()));
+    }
+
+    let pattern = parts[1].to_string();
+    let replacement = parts[2].to_string();
+    let flags = if parts.len() > 3 { parts[3] } else { "" };
+
+    let global = flags.contains('g');
+
+    Ok(Command::Substitute {
+        pattern,
+        replacement,
+        global,
+        all_lines,
+    })
 }

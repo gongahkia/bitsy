@@ -16,8 +16,7 @@
 
 ## Phase 6: Vim Operators (0 tasks remaining - COMPLETE)
 
-## Phase 7: Command Mode (8 tasks remaining)
-(B) 2026-01-09 Build :substitute (:s, :%s) command for search and replace +vim-command @implementation
+## Phase 7: Command Mode (7 tasks remaining)
 (B) 2026-01-09 Implement range support for commands (1,10d, %s, '<,'>s) +vim-command @implementation
 (B) 2026-01-09 Create :set command for runtime configuration +vim-command @implementation
 (B) 2026-01-09 Implement :help command with help text system +vim-command @implementation

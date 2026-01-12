@@ -397,6 +397,23 @@ impl Editor {
                 self.cursor.col = 0;
                 self.clamp_cursor();
             }
+            Command::Substitute { pattern, replacement, global, all_lines } => {
+                let count = if all_lines {
+                    self.execute_substitute_all(&pattern, &replacement, global)
+                } else {
+                    self.execute_substitute_line(self.cursor.line, &pattern, &replacement, global)
+                };
+                if count > 0 {
+                    self.message = Some(format!("{} substitution{} on {} line{}",
+                        count,
+                        if count == 1 { "" } else { "s" },
+                        if all_lines { self.buffer.line_count() } else { 1 },
+                        if all_lines && self.buffer.line_count() != 1 { "s" } else { "" }
+                    ));
+                } else {
+                    self.message = Some("Pattern not found".to_string());
+                }
+            }
             Command::Unknown(cmd) => {
                 self.message = Some(format!("Unknown command: {}", cmd));
             }
@@ -507,6 +524,46 @@ impl Editor {
         }
 
         false
+    }
+
+    fn execute_substitute_line(&mut self, line: usize, pattern: &str, replacement: &str, global: bool) -> usize {
+        if let Some(line_text) = self.buffer.get_line(line) {
+            let new_text = if global {
+                line_text.replace(pattern, replacement)
+            } else {
+                line_text.replacen(pattern, replacement, 1)
+            };
+
+            let count = if global {
+                line_text.matches(pattern).count()
+            } else {
+                if line_text.contains(pattern) { 1 } else { 0 }
+            };
+
+            if count > 0 {
+                // Replace the entire line
+                let line_len = self.buffer.line_len(line);
+                self.buffer.delete_range(line, 0, line, line_len);
+                for (i, ch) in new_text.chars().enumerate() {
+                    self.buffer.insert_char(line, i, ch);
+                }
+            }
+
+            count
+        } else {
+            0
+        }
+    }
+
+    fn execute_substitute_all(&mut self, pattern: &str, replacement: &str, global: bool) -> usize {
+        let line_count = self.buffer.line_count();
+        let mut total_count = 0;
+
+        for line in 0..line_count {
+            total_count += self.execute_substitute_line(line, pattern, replacement, global);
+        }
+
+        total_count
     }
 
     fn apply_text_object_word(&mut self, modifier: TextObjectModifier) -> Result<()> {
