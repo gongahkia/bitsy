@@ -18,9 +18,7 @@
 (C) 2026-01-09 Create motion count support (5j, 3w, 2{) +vim-motions @implementation
 (C) 2026-01-09 Implement text object motions (aw, iw, ap, ip, a", i", a', i', a), i), etc) +vim-motions @implementation
 
-## Phase 6: Vim Operators (3 tasks remaining)
-(C) 2026-01-09 Build operator count support (d3w, 2dd, 3p) +vim-operators @implementation
-(C) 2026-01-09 Build motion count support (5j, 3w, 2{) +vim-operators @implementation
+## Phase 6: Vim Operators (1 task remaining)
 (C) 2026-01-09 Implement dot repeat command (.) for last change +vim-operators @implementation
 
 ## Phase 7: Command Mode (8 tasks remaining)

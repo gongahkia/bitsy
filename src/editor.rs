@@ -47,6 +47,7 @@ pub struct Editor {
     selection: Option<Selection>,
     last_find: Option<(char, FindDirection)>,
     pending_key: Option<char>,
+    count: usize, // Count for operator/motion repetition (e.g., 3dw, 5j)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -88,6 +89,7 @@ impl Editor {
             selection: None,
             last_find: None,
             pending_key: None,
+            count: 0,
         })
     }
 
@@ -130,6 +132,20 @@ impl Editor {
         if self.mode == Mode::Command {
             self.handle_command_mode_key(key)?;
         } else {
+            // Handle count input (digits in normal mode)
+            if self.mode == Mode::Normal {
+                if let KeyCode::Char(c) = key.code {
+                    if c.is_ascii_digit() {
+                        let digit = c.to_digit(10).unwrap() as usize;
+                        // Prevent leading zero unless it's the first digit and we have no count
+                        if digit != 0 || self.count != 0 {
+                            self.count = self.count * 10 + digit;
+                            return Ok(());
+                        }
+                    }
+                }
+            }
+
             // Handle multi-key sequences (like gJ, gg, ge, etc.)
             let action = if let Some(prefix) = self.pending_key {
                 let sequence_action = self.map_key_sequence(prefix, key);
@@ -152,6 +168,11 @@ impl Editor {
                 self.handle_operator_motion(action)?;
             } else {
                 self.execute_action(action)?;
+            }
+
+            // Reset count after executing action (unless waiting for more input)
+            if self.pending_operator == PendingOperator::None && self.pending_key.is_none() {
+                self.count = 0;
             }
         }
         Ok(())
@@ -263,40 +284,82 @@ impl Editor {
         };
 
         if let Some(op) = doubled {
-            // Operator was doubled, apply to whole line
+            // Operator was doubled, apply to whole line(s) with count
+            let count = if self.count == 0 { 1 } else { self.count };
             match op {
                 "delete_line" => {
-                    if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
-                        self.registers.set_delete(None, RegisterContent::Line(vec![line_text]));
+                    let start_line = self.cursor.line;
+                    let end_line = (start_line + count - 1).min(self.buffer.line_count() - 1);
+
+                    // Collect lines being deleted
+                    let mut lines = Vec::new();
+                    for line_idx in start_line..=end_line {
+                        if let Some(line_text) = self.buffer.get_line(line_idx) {
+                            lines.push(line_text);
+                        }
                     }
-                    // Delete the entire line
-                    let line = self.cursor.line;
-                    if line < self.buffer.line_count() - 1 {
-                        // Not last line - delete line and its newline
-                        self.buffer.delete_range(line, 0, line + 1, 0);
-                    } else if line > 0 {
-                        // Last line - delete from end of previous line
-                        let prev_line_len = self.buffer.line_len(line - 1);
-                        self.buffer.delete_range(line - 1, prev_line_len, line, self.buffer.line_len(line));
-                        self.cursor.line -= 1;
+                    self.registers.set_delete(None, RegisterContent::Line(lines));
+
+                    // Delete the lines
+                    for _ in 0..count {
+                        let line = self.cursor.line;
+                        if line < self.buffer.line_count() - 1 {
+                            // Not last line - delete line and its newline
+                            self.buffer.delete_range(line, 0, line + 1, 0);
+                        } else if line > 0 {
+                            // Last line - delete from end of previous line
+                            let prev_line_len = self.buffer.line_len(line - 1);
+                            self.buffer.delete_range(line - 1, prev_line_len, line, self.buffer.line_len(line));
+                            self.cursor.line -= 1;
+                            break;
+                        } else {
+                            break;
+                        }
                     }
                 }
                 "yank_line" => {
-                    if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
-                        self.registers.set_yank(None, RegisterContent::Line(vec![line_text]));
-                        self.message = Some("1 line yanked".to_string());
+                    let start_line = self.cursor.line;
+                    let end_line = (start_line + count - 1).min(self.buffer.line_count() - 1);
+
+                    // Collect lines being yanked
+                    let mut lines = Vec::new();
+                    for line_idx in start_line..=end_line {
+                        if let Some(line_text) = self.buffer.get_line(line_idx) {
+                            lines.push(line_text);
+                        }
                     }
+                    self.registers.set_yank(None, RegisterContent::Line(lines.clone()));
+                    self.message = Some(format!("{} line{} yanked", lines.len(), if lines.len() == 1 { "" } else { "s" }));
                 }
                 "change_line" => {
-                    if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
-                        self.registers.set_delete(None, RegisterContent::Line(vec![line_text]));
+                    let start_line = self.cursor.line;
+                    let end_line = (start_line + count - 1).min(self.buffer.line_count() - 1);
+
+                    // Collect lines being deleted
+                    let mut lines = Vec::new();
+                    for line_idx in start_line..=end_line {
+                        if let Some(line_text) = self.buffer.get_line(line_idx) {
+                            lines.push(line_text);
+                        }
                     }
-                    // Delete line content and enter insert mode
+                    self.registers.set_delete(None, RegisterContent::Line(lines));
+
+                    // Delete line content(s) and enter insert mode
                     let line = self.cursor.line;
                     let line_len = self.buffer.line_len(line);
                     if line_len > 0 {
                         self.buffer.delete_range(line, 0, line, line_len);
                     }
+
+                    // Delete additional lines if count > 1
+                    for _ in 1..count {
+                        if self.cursor.line < self.buffer.line_count() - 1 {
+                            self.buffer.delete_range(self.cursor.line, 0, self.cursor.line + 1, 0);
+                        } else {
+                            break;
+                        }
+                    }
+
                     self.cursor.col = 0;
                     self.mode = Mode::Insert;
                 }
@@ -338,8 +401,11 @@ impl Editor {
                 // Save current position
                 let old_cursor = self.cursor;
 
-                // Execute the motion
-                self.execute_action(action)?;
+                // Execute the motion (repeat count times)
+                let count = if self.count == 0 { 1 } else { self.count };
+                for _ in 0..count {
+                    self.execute_action(action.clone())?;
+                }
 
                 // Get the range
                 let end_line = self.cursor.line;
@@ -582,26 +648,36 @@ impl Editor {
         match action {
             // Movement
             Action::MoveUp => {
-                self.cursor.move_up(1);
+                let count = if self.count == 0 { 1 } else { self.count };
+                self.cursor.move_up(count);
                 self.clamp_cursor();
             }
             Action::MoveDown => {
-                self.cursor.move_down(1);
+                let count = if self.count == 0 { 1 } else { self.count };
+                self.cursor.move_down(count);
                 self.clamp_cursor();
             }
             Action::MoveLeft => {
-                self.cursor.move_left(1);
+                let count = if self.count == 0 { 1 } else { self.count };
+                self.cursor.move_left(count);
                 self.clamp_cursor();
             }
             Action::MoveRight => {
-                self.cursor.move_right(1);
+                let count = if self.count == 0 { 1 } else { self.count };
+                self.cursor.move_right(count);
                 self.clamp_cursor();
             }
             Action::MoveWordForward => {
-                self.move_word_forward();
+                let count = if self.count == 0 { 1 } else { self.count };
+                for _ in 0..count {
+                    self.move_word_forward();
+                }
             }
             Action::MoveWordBackward => {
-                self.move_word_backward();
+                let count = if self.count == 0 { 1 } else { self.count };
+                for _ in 0..count {
+                    self.move_word_backward();
+                }
             }
             Action::MoveLineStart => {
                 self.cursor.move_to_line_start();
@@ -888,78 +964,84 @@ impl Editor {
                 }
             }
             Action::Paste => {
-                // Paste after cursor
-                if let Some(content) = self.registers.get(None) {
-                    match content {
-                        RegisterContent::Char(text) => {
-                            for ch in text.chars() {
-                                if ch == '\n' {
-                                    self.buffer.insert_newline(self.cursor.line, self.cursor.col);
-                                    self.cursor.line += 1;
-                                    self.cursor.col = 0;
-                                } else {
-                                    self.buffer.insert_char(self.cursor.line, self.cursor.col, ch);
-                                    self.cursor.col += 1;
+                // Paste after cursor (repeat count times)
+                let count = if self.count == 0 { 1 } else { self.count };
+                for _ in 0..count {
+                    if let Some(content) = self.registers.get(None) {
+                        match content {
+                            RegisterContent::Char(text) => {
+                                for ch in text.chars() {
+                                    if ch == '\n' {
+                                        self.buffer.insert_newline(self.cursor.line, self.cursor.col);
+                                        self.cursor.line += 1;
+                                        self.cursor.col = 0;
+                                    } else {
+                                        self.buffer.insert_char(self.cursor.line, self.cursor.col, ch);
+                                        self.cursor.col += 1;
+                                    }
                                 }
                             }
-                        }
-                        RegisterContent::Line(lines) => {
-                            // Paste line(s) below current line
-                            let insert_line = self.cursor.line + 1;
-                            for (i, line) in lines.iter().enumerate() {
-                                // Insert newline to create space
-                                let target_line = insert_line + i;
-                                if target_line > 0 {
-                                    let prev_line = target_line - 1;
-                                    let prev_line_len = self.buffer.line_len(prev_line);
-                                    self.buffer.insert_newline(prev_line, prev_line_len);
+                            RegisterContent::Line(lines) => {
+                                // Paste line(s) below current line
+                                let insert_line = self.cursor.line + 1;
+                                for (i, line) in lines.iter().enumerate() {
+                                    // Insert newline to create space
+                                    let target_line = insert_line + i;
+                                    if target_line > 0 {
+                                        let prev_line = target_line - 1;
+                                        let prev_line_len = self.buffer.line_len(prev_line);
+                                        self.buffer.insert_newline(prev_line, prev_line_len);
+                                    }
+                                    // Insert the line content
+                                    for ch in line.chars() {
+                                        self.buffer.insert_char(target_line, 0, ch);
+                                    }
                                 }
-                                // Insert the line content
-                                for ch in line.chars() {
-                                    self.buffer.insert_char(target_line, 0, ch);
-                                }
+                                self.cursor.line = insert_line;
+                                self.cursor.col = 0;
                             }
-                            self.cursor.line = insert_line;
-                            self.cursor.col = 0;
+                            _ => {}
                         }
-                        _ => {}
                     }
                 }
             }
             Action::PasteBefore => {
-                // Paste before cursor
-                if let Some(content) = self.registers.get(None) {
-                    match content {
-                        RegisterContent::Char(text) => {
-                            for ch in text.chars() {
-                                if ch == '\n' {
-                                    self.buffer.insert_newline(self.cursor.line, self.cursor.col);
-                                    self.cursor.line += 1;
-                                    self.cursor.col = 0;
-                                } else {
-                                    self.buffer.insert_char(self.cursor.line, self.cursor.col, ch);
-                                    self.cursor.col += 1;
+                // Paste before cursor (repeat count times)
+                let count = if self.count == 0 { 1 } else { self.count };
+                for _ in 0..count {
+                    if let Some(content) = self.registers.get(None) {
+                        match content {
+                            RegisterContent::Char(text) => {
+                                for ch in text.chars() {
+                                    if ch == '\n' {
+                                        self.buffer.insert_newline(self.cursor.line, self.cursor.col);
+                                        self.cursor.line += 1;
+                                        self.cursor.col = 0;
+                                    } else {
+                                        self.buffer.insert_char(self.cursor.line, self.cursor.col, ch);
+                                        self.cursor.col += 1;
+                                    }
                                 }
                             }
-                        }
-                        RegisterContent::Line(lines) => {
-                            // Paste line(s) above current line
-                            for (i, line) in lines.iter().enumerate() {
-                                let target_line = self.cursor.line + i;
-                                // Insert newline to create space
-                                if target_line > 0 {
-                                    let prev_line = target_line.saturating_sub(1);
-                                    let prev_line_len = self.buffer.line_len(prev_line);
-                                    self.buffer.insert_newline(prev_line, prev_line_len);
+                            RegisterContent::Line(lines) => {
+                                // Paste line(s) above current line
+                                for (i, line) in lines.iter().enumerate() {
+                                    let target_line = self.cursor.line + i;
+                                    // Insert newline to create space
+                                    if target_line > 0 {
+                                        let prev_line = target_line.saturating_sub(1);
+                                        let prev_line_len = self.buffer.line_len(prev_line);
+                                        self.buffer.insert_newline(prev_line, prev_line_len);
+                                    }
+                                    // Insert the line content
+                                    for ch in line.chars() {
+                                        self.buffer.insert_char(target_line, 0, ch);
+                                    }
                                 }
-                                // Insert the line content
-                                for ch in line.chars() {
-                                    self.buffer.insert_char(target_line, 0, ch);
-                                }
+                                self.cursor.col = 0;
                             }
-                            self.cursor.col = 0;
+                            _ => {}
                         }
-                        _ => {}
                     }
                 }
             }
