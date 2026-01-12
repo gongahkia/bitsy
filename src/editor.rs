@@ -2,6 +2,7 @@
 
 use crossterm::event::{Event, KeyCode, KeyEvent};
 use crossterm::style::Color;
+use std::collections::HashMap;
 use std::path::Path;
 
 use crate::buffer::Buffer;
@@ -55,6 +56,17 @@ pub struct Editor {
     pending_text_object: Option<TextObjectModifier>, // Waiting for text object (a or i)
     pending_register: Option<char>, // Register selected with " prefix
     waiting_for_register: bool, // True when " was just pressed
+    marks: HashMap<char, (usize, usize)>, // Mark positions (line, col)
+    change_list: Vec<(usize, usize)>, // List of change positions
+    change_index: usize, // Current position in change list
+    waiting_for_mark: Option<MarkAction>, // Waiting for mark character after m, ', or `
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MarkAction {
+    Set,        // m (set mark)
+    Jump,       // ' (jump to line)
+    JumpExact,  // ` (jump to exact position)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -110,6 +122,10 @@ impl Editor {
             pending_text_object: None,
             pending_register: None,
             waiting_for_register: false,
+            marks: HashMap::new(),
+            change_list: Vec::new(),
+            change_index: 0,
+            waiting_for_mark: None,
         })
     }
 
@@ -154,6 +170,53 @@ impl Editor {
         } else if self.mode == Mode::Search {
             self.handle_search_mode_key(key)?;
         } else {
+            // Handle mark operations (m, ', `)
+            if self.mode == Mode::Normal && self.waiting_for_mark.is_some() {
+                if let KeyCode::Char(c) = key.code {
+                    let mark_action = self.waiting_for_mark.unwrap();
+                    self.waiting_for_mark = None;
+                    match mark_action {
+                        MarkAction::Set => {
+                            self.marks.insert(c, (self.cursor.line, self.cursor.col));
+                        }
+                        MarkAction::Jump => {
+                            if let Some(&(line, _col)) = self.marks.get(&c) {
+                                self.cursor.line = line.min(self.buffer.line_count().saturating_sub(1));
+                                self.cursor.col = 0;
+                                self.clamp_cursor();
+                            }
+                        }
+                        MarkAction::JumpExact => {
+                            if let Some(&(line, col)) = self.marks.get(&c) {
+                                self.cursor.line = line.min(self.buffer.line_count().saturating_sub(1));
+                                self.cursor.col = col;
+                                self.clamp_cursor();
+                            }
+                        }
+                    }
+                    return Ok(());
+                }
+            }
+
+            // Check for m, ', ` to start mark operations
+            if self.mode == Mode::Normal && self.waiting_for_mark.is_none() {
+                match key.code {
+                    KeyCode::Char('m') => {
+                        self.waiting_for_mark = Some(MarkAction::Set);
+                        return Ok(());
+                    }
+                    KeyCode::Char('\'') => {
+                        self.waiting_for_mark = Some(MarkAction::Jump);
+                        return Ok(());
+                    }
+                    KeyCode::Char('`') => {
+                        self.waiting_for_mark = Some(MarkAction::JumpExact);
+                        return Ok(());
+                    }
+                    _ => {}
+                }
+            }
+
             // Handle register selection (")
             if self.mode == Mode::Normal && self.waiting_for_register {
                 if let KeyCode::Char(c) = key.code {
@@ -245,6 +308,8 @@ impl Editor {
                 KeyCode::Char('u') => Action::MakeLowercase, // gu
                 KeyCode::Char('U') => Action::MakeUppercase, // gU
                 KeyCode::Char('~') => Action::ToggleCase, // g~
+                KeyCode::Char(';') => Action::JumpToChangeNext, // g;
+                KeyCode::Char(',') => Action::JumpToChangePrev, // g,
                 _ => Action::None,
             }
         } else if prefix == 'r' {
@@ -1214,6 +1279,17 @@ impl Editor {
         // Use current count if set, otherwise use 0 (will default to 1 on replay)
         let count = if self.count == 0 { 0 } else { self.count };
         self.last_change = Some((action, count));
+
+        // Add position to change list
+        let pos = (self.cursor.line, self.cursor.col);
+        self.change_list.push(pos);
+        self.change_index = self.change_list.len().saturating_sub(1);
+
+        // Limit change list size to prevent unbounded growth
+        if self.change_list.len() > 100 {
+            self.change_list.remove(0);
+            self.change_index = self.change_index.saturating_sub(1);
+        }
     }
 
     fn execute_action(&mut self, action: Action) -> Result<()> {
@@ -1810,6 +1886,26 @@ impl Editor {
                             self.execute_search()?;
                         }
                     }
+                }
+            }
+
+            // Change list navigation
+            Action::JumpToChangeNext => {
+                if self.change_index < self.change_list.len().saturating_sub(1) {
+                    self.change_index += 1;
+                    let (line, col) = self.change_list[self.change_index];
+                    self.cursor.line = line.min(self.buffer.line_count().saturating_sub(1));
+                    self.cursor.col = col;
+                    self.clamp_cursor();
+                }
+            }
+            Action::JumpToChangePrev => {
+                if self.change_index > 0 {
+                    self.change_index -= 1;
+                    let (line, col) = self.change_list[self.change_index];
+                    self.cursor.line = line.min(self.buffer.line_count().saturating_sub(1));
+                    self.cursor.col = col;
+                    self.clamp_cursor();
                 }
             }
 

@@ -102,6 +102,13 @@ pub enum Action {
     SearchWordForward,   // * (search word under cursor forward)
     SearchWordBackward,  // # (search word under cursor backward)
 
+    // Marks
+    SetMark(char),       // m{char} (set mark)
+    JumpToMark(char),    // '{char} (jump to mark line)
+    JumpToMarkExact(char), // `{char} (jump to mark exact position)
+    JumpToChangeNext,    // g; (jump to next change)
+    JumpToChangePrev,    // g, (jump to previous change)
+
     // Other
     RepeatLastChange,    // . (dot command)
     None,
