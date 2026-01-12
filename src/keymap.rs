@@ -94,6 +94,7 @@ pub enum Action {
     Quit,
 
     // Other
+    RepeatLastChange,    // . (dot command)
     None,
 }
 
@@ -158,6 +159,7 @@ fn map_normal_mode_key(key: KeyEvent) -> Action {
         // Editing
         KeyCode::Char('x') => Action::DeleteChar,
         KeyCode::Char('u') => Action::Undo,
+        KeyCode::Char('.') => Action::RepeatLastChange,
 
         // Operators
         KeyCode::Char('d') => Action::Delete,

@@ -48,6 +48,7 @@ pub struct Editor {
     last_find: Option<(char, FindDirection)>,
     pending_key: Option<char>,
     count: usize, // Count for operator/motion repetition (e.g., 3dw, 5j)
+    last_change: Option<(Action, usize)>, // Last change for dot repeat (action, count)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,6 +91,7 @@ impl Editor {
             last_find: None,
             pending_key: None,
             count: 0,
+            last_change: None,
         })
     }
 
@@ -365,6 +367,12 @@ impl Editor {
                 }
                 _ => {}
             }
+
+            // Record change for dot repeat (not for yank)
+            if op == "delete_line" || op == "change_line" {
+                self.record_change(action.clone());
+            }
+
             self.pending_operator = PendingOperator::None;
             self.clamp_cursor();
             return Ok(());
@@ -413,6 +421,11 @@ impl Editor {
 
                 // Apply the operator to the range
                 self.apply_operator_to_range(start_line, start_col, end_line, end_col)?;
+
+                // Record change for dot repeat (not for yank)
+                if self.pending_operator != PendingOperator::Yank && self.pending_operator != PendingOperator::None {
+                    self.record_change(action.clone());
+                }
 
                 // Restore cursor for delete/change
                 if self.pending_operator == PendingOperator::Delete || self.pending_operator == PendingOperator::Change {
@@ -642,6 +655,13 @@ impl Editor {
                 }
             }
         }
+    }
+
+    fn record_change(&mut self, action: Action) {
+        // Record this action for dot repeat
+        // Use current count if set, otherwise use 0 (will default to 1 on replay)
+        let count = if self.count == 0 { 0 } else { self.count };
+        self.last_change = Some((action, count));
     }
 
     fn execute_action(&mut self, action: Action) -> Result<()> {
@@ -877,7 +897,8 @@ impl Editor {
                         self.buffer.delete_char(self.cursor.line, self.cursor.col);
                     }
                 } else if self.mode == Mode::Normal {
-                    // x in normal mode
+                    // x in normal mode - record for dot repeat
+                    self.record_change(action.clone());
                     self.buffer.delete_char(self.cursor.line, self.cursor.col);
                     self.clamp_cursor();
                 }
@@ -898,7 +919,8 @@ impl Editor {
                     }
                     self.cursor.move_right(1);
                 } else {
-                    // r{char} - single character replace in normal mode
+                    // r{char} - single character replace in normal mode - record for dot repeat
+                    self.record_change(action.clone());
                     if col < self.buffer.line_len(line) {
                         self.buffer.delete_char(line, col);
                         self.buffer.insert_char(line, col, ch);
@@ -1086,6 +1108,21 @@ impl Editor {
             }
             Action::AutoIndent => {
                 self.pending_operator = PendingOperator::AutoIndent;
+            }
+
+            Action::RepeatLastChange => {
+                // Dot command - repeat last change
+                if let Some((last_action, last_count)) = self.last_change.clone() {
+                    // Use current count if specified, otherwise use stored count
+                    let saved_count = self.count;
+                    self.count = if saved_count > 0 { saved_count } else { last_count };
+
+                    // Execute the last action
+                    self.execute_action(last_action)?;
+
+                    // Restore count (will be reset later in handle_key)
+                    self.count = saved_count;
+                }
             }
 
             Action::Quit => {
