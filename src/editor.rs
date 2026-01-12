@@ -550,12 +550,56 @@ impl Editor {
                     }
                 }
             }
+            Command::Help(topic) => {
+                let help_text = if let Some(t) = topic {
+                    self.get_help_topic(&t)
+                } else {
+                    self.get_general_help()
+                };
+                self.message = Some(help_text);
+            }
             Command::Unknown(cmd) => {
                 self.message = Some(format!("Unknown command: {}", cmd));
             }
         }
 
         Ok(())
+    }
+
+    fn get_general_help(&self) -> String {
+        "Bitsy - Vim-compatible text editor | :help [topic] for more | :q to quit".to_string()
+    }
+
+    fn get_help_topic(&self, topic: &str) -> String {
+        match topic {
+            "motions" | "movement" => {
+                "Motions: hjkl (left/down/up/right), w/b/e (word), gg/G (file start/end), %/0/$ (line), f/F/t/T (find char), /? (search)".to_string()
+            }
+            "operators" | "editing" => {
+                "Operators: d (delete), c (change), y (yank), p/P (paste), J (join), u (undo), . (repeat), >/< (indent), = (auto-indent)".to_string()
+            }
+            "modes" => {
+                "Modes: i/I/a/A/o/O (insert), ESC (normal), v/V (visual), : (command), R (replace)".to_string()
+            }
+            "commands" => {
+                ":Commands: :w (write), :q (quit), :e (edit), :s/find/replace/g (substitute), :set (options), :help, :d (delete)".to_string()
+            }
+            "textobjects" | "objects" => {
+                "Text objects: aw/iw (word), ap/ip (paragraph), a\"/i\" (quotes), a(/i( (parens), a[/i[, a{/i{, a</i<".to_string()
+            }
+            "marks" => {
+                "Marks: m{a-z} (set mark), '{a-z} (jump to mark line), `{a-z} (jump to exact position), g; (next change), g, (prev change)".to_string()
+            }
+            "search" => {
+                "Search: /{pattern} (forward), ?{pattern} (backward), n (next), N (prev), * (word forward), # (word backward)".to_string()
+            }
+            "ranges" => {
+                "Ranges: % (all lines), 1,10 (lines 1-10), . (current line). Use with :s, :d. Example: %s/old/new/g".to_string()
+            }
+            _ => {
+                format!("No help for '{}'. Try :help motions, :help operators, :help commands", topic)
+            }
+        }
     }
 
     fn execute_search(&mut self) -> Result<()> {

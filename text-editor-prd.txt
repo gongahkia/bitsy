@@ -15,8 +15,7 @@
 
 ## Phase 6: Vim Operators (0 tasks remaining - COMPLETE)
 
-## Phase 7: Command Mode (5 tasks remaining)
-(B) 2026-01-09 Implement :help command with help text system +vim-command @implementation
+## Phase 7: Command Mode (4 tasks remaining)
 (C) 2026-01-09 Build :buffer (:b, :bn, :bp, :bd) commands +vim-command @implementation
 (C) 2026-01-09 Create :split (:sp, :vsp, :close) commands +vim-command @implementation
 (C) 2026-01-09 Implement command-line history with up/down arrows +vim-command @implementation

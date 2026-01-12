@@ -19,6 +19,7 @@ pub enum Command {
     Substitute { pattern: String, replacement: String, global: bool, range: Option<Range> },
     Set { option: String, value: Option<String> },
     Delete { range: Option<Range> },
+    Help(Option<String>),
     Unknown(String),
 }
 
@@ -61,6 +62,10 @@ pub fn parse_command(input: &str) -> Result<Command> {
             } else if command == "set" {
                 // :set with no args - TODO: show current settings
                 Ok(Command::Unknown("set".to_string()))
+            } else if let Some(topic) = command.strip_prefix("help ") {
+                Ok(Command::Help(Some(topic.trim().to_string())))
+            } else if command == "help" || command == "h" {
+                Ok(Command::Help(None))
             } else {
                 Ok(Command::Unknown(command.to_string()))
             }
