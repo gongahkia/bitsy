@@ -4,6 +4,7 @@
 pub enum Mode {
     Normal,
     Insert,
+    Replace,
     Visual,
     VisualLine,
     VisualBlock,
@@ -15,6 +16,7 @@ impl Mode {
         match self {
             Mode::Normal => "NORMAL",
             Mode::Insert => "INSERT",
+            Mode::Replace => "REPLACE",
             Mode::Visual => "VISUAL",
             Mode::VisualLine => "VISUAL LINE",
             Mode::VisualBlock => "VISUAL BLOCK",

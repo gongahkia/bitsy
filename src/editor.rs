@@ -139,6 +139,10 @@ impl Editor {
                 // 'g' is a prefix key, wait for next key
                 self.pending_key = Some('g');
                 return Ok(());
+            } else if key.code == KeyCode::Char('r') && self.mode == Mode::Normal {
+                // 'r' is a prefix key (replace character), wait for next key
+                self.pending_key = Some('r');
+                return Ok(());
             } else {
                 map_key(key, &self.mode)
             };
@@ -166,6 +170,11 @@ impl Editor {
                 KeyCode::Char('u') => Action::MakeLowercase, // gu
                 KeyCode::Char('U') => Action::MakeUppercase, // gU
                 KeyCode::Char('~') => Action::ToggleCase, // g~
+                _ => Action::None,
+            }
+        } else if prefix == 'r' {
+            match key.code {
+                KeyCode::Char(c) => Action::Replace(c), // r{char}
                 _ => Action::None,
             }
         } else {
@@ -745,6 +754,9 @@ impl Editor {
                 self.cursor.col = 0;
                 self.mode = Mode::Insert;
             }
+            Action::EnterReplaceMode => {
+                self.mode = Mode::Replace;
+            }
             Action::EnterVisualMode => {
                 self.mode = Mode::Visual;
                 self.selection = Some(Selection::from_cursor(self.cursor, Mode::Visual));
@@ -775,15 +787,15 @@ impl Editor {
                 }
             }
             Action::InsertNewline => {
-                if self.mode == Mode::Insert {
+                if self.mode == Mode::Insert || self.mode == Mode::Replace {
                     self.buffer.insert_newline(self.cursor.line, self.cursor.col);
                     self.cursor.line += 1;
                     self.cursor.col = 0;
                 }
             }
             Action::DeleteChar => {
-                if self.mode == Mode::Insert {
-                    // Backspace in insert mode
+                if self.mode == Mode::Insert || self.mode == Mode::Replace {
+                    // Backspace in insert/replace mode
                     if self.cursor.col > 0 {
                         self.cursor.move_left(1);
                         self.buffer.delete_char(self.cursor.line, self.cursor.col);
@@ -792,6 +804,29 @@ impl Editor {
                     // x in normal mode
                     self.buffer.delete_char(self.cursor.line, self.cursor.col);
                     self.clamp_cursor();
+                }
+            }
+            Action::Replace(ch) => {
+                let line = self.cursor.line;
+                let col = self.cursor.col;
+
+                if self.mode == Mode::Replace {
+                    // R mode - continuous replace, move cursor right
+                    if col < self.buffer.line_len(line) {
+                        // Replace existing character
+                        self.buffer.delete_char(line, col);
+                        self.buffer.insert_char(line, col, ch);
+                    } else {
+                        // At end of line, insert instead
+                        self.buffer.insert_char(line, col, ch);
+                    }
+                    self.cursor.move_right(1);
+                } else {
+                    // r{char} - single character replace in normal mode
+                    if col < self.buffer.line_len(line) {
+                        self.buffer.delete_char(line, col);
+                        self.buffer.insert_char(line, col, ch);
+                    }
                 }
             }
 

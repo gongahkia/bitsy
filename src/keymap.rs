@@ -54,6 +54,7 @@ pub enum Action {
     EnterInsertModeAppendEnd,
     EnterInsertModeNewLineBelow,
     EnterInsertModeNewLineAbove,
+    EnterReplaceMode,
     EnterVisualMode,
     EnterVisualLineMode,
     EnterCommandMode,
@@ -102,6 +103,7 @@ pub fn map_key(key: KeyEvent, mode: &crate::mode::Mode) -> Action {
     match mode {
         Mode::Normal => map_normal_mode_key(key),
         Mode::Insert => map_insert_mode_key(key),
+        Mode::Replace => map_replace_mode_key(key),
         Mode::Visual | Mode::VisualLine | Mode::VisualBlock => map_visual_mode_key(key),
         Mode::Command => Action::None, // Command mode has its own input handling
     }
@@ -148,6 +150,7 @@ fn map_normal_mode_key(key: KeyEvent) -> Action {
         KeyCode::Char('A') => Action::EnterInsertModeAppendEnd,
         KeyCode::Char('o') => Action::EnterInsertModeNewLineBelow,
         KeyCode::Char('O') => Action::EnterInsertModeNewLineAbove,
+        KeyCode::Char('R') => Action::EnterReplaceMode,
         KeyCode::Char('v') => Action::EnterVisualMode,
         KeyCode::Char('V') => Action::EnterVisualLineMode,
         KeyCode::Char(':') => Action::EnterCommandMode,
@@ -178,6 +181,20 @@ fn map_insert_mode_key(key: KeyEvent) -> Action {
     match key.code {
         KeyCode::Esc => Action::EnterNormalMode,
         KeyCode::Char(c) => Action::InsertChar(c),
+        KeyCode::Enter => Action::InsertNewline,
+        KeyCode::Backspace => Action::DeleteChar,
+        KeyCode::Left => Action::MoveLeft,
+        KeyCode::Right => Action::MoveRight,
+        KeyCode::Up => Action::MoveUp,
+        KeyCode::Down => Action::MoveDown,
+        _ => Action::None,
+    }
+}
+
+fn map_replace_mode_key(key: KeyEvent) -> Action {
+    match key.code {
+        KeyCode::Esc => Action::EnterNormalMode,
+        KeyCode::Char(c) => Action::Replace(c), // In replace mode, use Replace action
         KeyCode::Enter => Action::InsertNewline,
         KeyCode::Backspace => Action::DeleteChar,
         KeyCode::Left => Action::MoveLeft,
