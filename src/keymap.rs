@@ -46,6 +46,7 @@ pub enum Action {
     ScrollTopToScreen,     // zt
     ScrollMiddleToScreen,  // zz
     ScrollBottomToScreen,  // zb
+    MoveToPercent,         // count% (e.g., 50% goes to 50% of file)
 
     // Mode switching
     EnterInsertMode,
@@ -137,7 +138,8 @@ fn map_normal_mode_key(key: KeyEvent) -> Action {
         KeyCode::Char('G') => Action::MoveFileEnd,
         KeyCode::Char('}') => Action::MoveParagraphForward,
         KeyCode::Char('{') => Action::MoveParagraphBackward,
-        KeyCode::Char('%') => Action::MoveMatchingBracket,
+        // % has dual use: without count, it matches brackets; with count, it goes to percentage
+        KeyCode::Char('%') => Action::MoveToPercent,
         KeyCode::Char(')') => Action::MoveSentenceForward,
         KeyCode::Char('(') => Action::MoveSentenceBackward,
         KeyCode::Char('H') => Action::MoveToScreenTop,

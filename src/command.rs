@@ -9,6 +9,7 @@ pub enum Command {
     WriteQuit,
     ForceQuit,
     Edit(String),
+    GoToLine(usize),
     Unknown(String),
 }
 
@@ -28,6 +29,11 @@ pub fn parse_command(input: &str) -> Result<Command> {
         "wq" | "x" => Ok(Command::WriteQuit),
         "q!" => Ok(Command::ForceQuit),
         _ => {
+            // Try to parse as line number
+            if let Ok(line_num) = input.parse::<usize>() {
+                return Ok(Command::GoToLine(line_num));
+            }
+
             if let Some(filename) = input.strip_prefix("e ") {
                 Ok(Command::Edit(filename.trim().to_string()))
             } else if let Some(filename) = input.strip_prefix("edit ") {

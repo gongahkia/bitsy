@@ -268,6 +268,13 @@ impl Editor {
                     }
                 }
             }
+            Command::GoToLine(line_num) => {
+                // Convert 1-indexed to 0-indexed
+                let target_line = line_num.saturating_sub(1);
+                self.cursor.line = target_line.min(self.buffer.line_count().saturating_sub(1));
+                self.cursor.col = 0;
+                self.clamp_cursor();
+            }
             Command::Unknown(cmd) => {
                 self.message = Some(format!("Unknown command: {}", cmd));
             }
@@ -403,7 +410,7 @@ impl Editor {
             Action::FindChar(_) | Action::FindCharBack(_) | Action::TillChar(_) | Action::TillCharBack(_) |
             Action::RepeatLastFind | Action::RepeatLastFindReverse |
             Action::MoveToScreenTop | Action::MoveToScreenMiddle | Action::MoveToScreenBottom |
-            Action::MoveMatchingBracket |
+            Action::MoveMatchingBracket | Action::MoveToPercent |
             Action::MovePageUp | Action::MovePageDown |
             Action::MoveHalfPageUp | Action::MoveHalfPageDown => {
                 // Save current position
@@ -707,7 +714,13 @@ impl Editor {
                 self.cursor.move_to_line_end(line_len);
             }
             Action::MoveFileStart => {
-                self.cursor.line = 0;
+                // Support count: gg or 10gg (go to line 10)
+                if self.count > 0 {
+                    // Count is 1-indexed, convert to 0-indexed
+                    self.cursor.line = (self.count - 1).min(self.buffer.line_count().saturating_sub(1));
+                } else {
+                    self.cursor.line = 0;
+                }
                 self.cursor.col = 0;
             }
             Action::MoveFileEnd => {
@@ -816,6 +829,20 @@ impl Editor {
             Action::MoveHalfPageDown => {
                 let half_page = self.viewport.height / 2;
                 self.cursor.move_down(half_page);
+                self.clamp_cursor();
+            }
+            Action::MoveToPercent => {
+                if self.count > 0 {
+                    // Move to percentage of file (e.g., 50% goes to line at 50% of file)
+                    let percent = self.count.min(100);
+                    let total_lines = self.buffer.line_count();
+                    let target_line = (total_lines * percent) / 100;
+                    self.cursor.line = target_line.saturating_sub(1).min(total_lines.saturating_sub(1));
+                    self.cursor.col = 0;
+                } else {
+                    // No count: fallback to matching bracket behavior
+                    self.move_to_matching_bracket();
+                }
                 self.clamp_cursor();
             }
 
