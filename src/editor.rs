@@ -558,6 +558,28 @@ impl Editor {
                 };
                 self.message = Some(help_text);
             }
+            Command::BufferNext => {
+                // Single buffer for now - show message
+                self.message = Some("Already at the last buffer".to_string());
+            }
+            Command::BufferPrevious => {
+                // Single buffer for now - show message
+                self.message = Some("Already at the first buffer".to_string());
+            }
+            Command::BufferList => {
+                // Show current buffer info
+                let buf_name = self.buffer.file_name();
+                let modified = if self.buffer.is_modified() { "[+]" } else { "" };
+                self.message = Some(format!("1 %a   \"{}\" {} line {}",
+                    buf_name,
+                    modified,
+                    self.buffer.line_count()
+                ));
+            }
+            Command::BufferDelete(_num) => {
+                // Cannot delete the only buffer
+                self.message = Some("Cannot delete last buffer".to_string());
+            }
             Command::Unknown(cmd) => {
                 self.message = Some(format!("Unknown command: {}", cmd));
             }

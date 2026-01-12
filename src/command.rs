@@ -20,6 +20,10 @@ pub enum Command {
     Set { option: String, value: Option<String> },
     Delete { range: Option<Range> },
     Help(Option<String>),
+    BufferNext,
+    BufferPrevious,
+    BufferList,
+    BufferDelete(Option<usize>),
     Unknown(String),
 }
 
@@ -66,6 +70,20 @@ pub fn parse_command(input: &str) -> Result<Command> {
                 Ok(Command::Help(Some(topic.trim().to_string())))
             } else if command == "help" || command == "h" {
                 Ok(Command::Help(None))
+            } else if command == "bn" || command == "bnext" {
+                Ok(Command::BufferNext)
+            } else if command == "bp" || command == "bprevious" {
+                Ok(Command::BufferPrevious)
+            } else if command == "ls" || command == "buffers" {
+                Ok(Command::BufferList)
+            } else if command == "bd" || command == "bdelete" {
+                Ok(Command::BufferDelete(None))
+            } else if let Some(buf_num) = command.strip_prefix("bd ") {
+                if let Ok(num) = buf_num.trim().parse::<usize>() {
+                    Ok(Command::BufferDelete(Some(num)))
+                } else {
+                    Ok(Command::Unknown(command.to_string()))
+                }
             } else {
                 Ok(Command::Unknown(command.to_string()))
             }
