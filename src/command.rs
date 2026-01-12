@@ -2,6 +2,12 @@
 
 use crate::error::{Error, Result};
 
+#[derive(Debug, Clone, Copy)]
+pub struct Range {
+    pub start: usize, // 1-indexed
+    pub end: usize,   // 1-indexed
+}
+
 #[derive(Debug)]
 pub enum Command {
     Write,
@@ -10,8 +16,9 @@ pub enum Command {
     ForceQuit,
     Edit(String),
     GoToLine(usize),
-    Substitute { pattern: String, replacement: String, global: bool, all_lines: bool },
+    Substitute { pattern: String, replacement: String, global: bool, range: Option<Range> },
     Set { option: String, value: Option<String> },
+    Delete { range: Option<Range> },
     Unknown(String),
 }
 
@@ -25,51 +32,85 @@ pub fn parse_command(input: &str) -> Result<Command> {
     // Remove leading colon if present
     let input = input.strip_prefix(':').unwrap_or(input);
 
-    match input {
+    // Parse range if present
+    let (range, command) = parse_range(input);
+
+    match command {
         "w" | "write" => Ok(Command::Write),
         "q" | "quit" => Ok(Command::Quit),
         "wq" | "x" => Ok(Command::WriteQuit),
         "q!" => Ok(Command::ForceQuit),
+        "d" | "delete" => Ok(Command::Delete { range }),
         _ => {
             // Try to parse substitute command
-            if input.starts_with("s/") || input.starts_with("%s/") {
-                return parse_substitute(input);
+            if command.starts_with("s/") {
+                return parse_substitute(command, range);
             }
 
             // Try to parse as line number
-            if let Ok(line_num) = input.parse::<usize>() {
+            if let Ok(line_num) = command.parse::<usize>() {
                 return Ok(Command::GoToLine(line_num));
             }
 
-            if let Some(filename) = input.strip_prefix("e ") {
+            if let Some(filename) = command.strip_prefix("e ") {
                 Ok(Command::Edit(filename.trim().to_string()))
-            } else if let Some(filename) = input.strip_prefix("edit ") {
+            } else if let Some(filename) = command.strip_prefix("edit ") {
                 Ok(Command::Edit(filename.trim().to_string()))
-            } else if let Some(set_args) = input.strip_prefix("set ") {
+            } else if let Some(set_args) = command.strip_prefix("set ") {
                 parse_set(set_args.trim())
-            } else if input == "set" {
+            } else if command == "set" {
                 // :set with no args - TODO: show current settings
                 Ok(Command::Unknown("set".to_string()))
             } else {
-                Ok(Command::Unknown(input.to_string()))
+                Ok(Command::Unknown(command.to_string()))
             }
         }
     }
 }
 
-fn parse_substitute(input: &str) -> Result<Command> {
-    let all_lines = input.starts_with("%s/");
-    let input = if all_lines { &input[2..] } else { &input[1..] };
+fn parse_range(input: &str) -> (Option<Range>, &str) {
+    // Handle % (all lines)
+    if input.starts_with('%') {
+        return (Some(Range { start: 1, end: usize::MAX }), &input[1..]);
+    }
+
+    // Handle line,line format (e.g., 1,10)
+    if let Some(comma_pos) = input.find(',') {
+        let before_comma = &input[..comma_pos];
+        let after_comma = &input[comma_pos + 1..];
+
+        // Find where the command starts (after the range)
+        if let Some(cmd_start) = after_comma.find(|c: char| !c.is_ascii_digit()) {
+            let end_str = &after_comma[..cmd_start];
+            if let (Ok(start), Ok(end)) = (before_comma.parse::<usize>(), end_str.parse::<usize>()) {
+                return (Some(Range { start, end }), &after_comma[cmd_start..]);
+            }
+        }
+    }
+
+    // Handle single line number (e.g., 10d)
+    if let Some(first_non_digit) = input.find(|c: char| !c.is_ascii_digit()) {
+        let line_str = &input[..first_non_digit];
+        if let Ok(line) = line_str.parse::<usize>() {
+            return (Some(Range { start: line, end: line }), &input[first_non_digit..]);
+        }
+    }
+
+    (None, input)
+}
+
+fn parse_substitute(input: &str, range: Option<Range>) -> Result<Command> {
+    let input = input.strip_prefix("s/").unwrap_or(input);
 
     // Parse s/pattern/replacement/flags
     let parts: Vec<&str> = input.split('/').collect();
-    if parts.len() < 3 {
+    if parts.len() < 2 {
         return Err(Error::ParseError("Invalid substitute syntax".to_string()));
     }
 
-    let pattern = parts[1].to_string();
-    let replacement = parts[2].to_string();
-    let flags = if parts.len() > 3 { parts[3] } else { "" };
+    let pattern = parts[0].to_string();
+    let replacement = parts[1].to_string();
+    let flags = if parts.len() > 2 { parts[2] } else { "" };
 
     let global = flags.contains('g');
 
@@ -77,7 +118,7 @@ fn parse_substitute(input: &str) -> Result<Command> {
         pattern,
         replacement,
         global,
-        all_lines,
+        range,
     })
 }
 

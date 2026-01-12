@@ -483,21 +483,61 @@ impl Editor {
                 self.cursor.col = 0;
                 self.clamp_cursor();
             }
-            Command::Substitute { pattern, replacement, global, all_lines } => {
-                let count = if all_lines {
-                    self.execute_substitute_all(&pattern, &replacement, global)
+            Command::Substitute { pattern, replacement, global, range } => {
+                let (start_line, end_line) = if let Some(r) = range {
+                    let start = r.start.saturating_sub(1); // Convert to 0-indexed
+                    let end = if r.end == usize::MAX {
+                        self.buffer.line_count().saturating_sub(1)
+                    } else {
+                        r.end.saturating_sub(1).min(self.buffer.line_count().saturating_sub(1))
+                    };
+                    (start, end)
                 } else {
-                    self.execute_substitute_line(self.cursor.line, &pattern, &replacement, global)
+                    // No range, use current line
+                    (self.cursor.line, self.cursor.line)
                 };
-                if count > 0 {
+
+                let mut total_count = 0;
+                for line in start_line..=end_line {
+                    total_count += self.execute_substitute_line(line, &pattern, &replacement, global);
+                }
+
+                let line_count = end_line - start_line + 1;
+                if total_count > 0 {
                     self.message = Some(format!("{} substitution{} on {} line{}",
-                        count,
-                        if count == 1 { "" } else { "s" },
-                        if all_lines { self.buffer.line_count() } else { 1 },
-                        if all_lines && self.buffer.line_count() != 1 { "s" } else { "" }
+                        total_count,
+                        if total_count == 1 { "" } else { "s" },
+                        line_count,
+                        if line_count != 1 { "s" } else { "" }
                     ));
                 } else {
                     self.message = Some("Pattern not found".to_string());
+                }
+            }
+            Command::Delete { range } => {
+                if let Some(r) = range {
+                    let start = r.start.saturating_sub(1).min(self.buffer.line_count().saturating_sub(1));
+                    let end = if r.end == usize::MAX {
+                        self.buffer.line_count().saturating_sub(1)
+                    } else {
+                        r.end.saturating_sub(1).min(self.buffer.line_count().saturating_sub(1))
+                    };
+
+                    // Delete lines from end to start to maintain indices
+                    for line in (start..=end).rev() {
+                        let line_len = self.buffer.line_len(line);
+                        self.buffer.delete_range(line, 0, line, line_len);
+                        // Also delete the newline if not the last line
+                        if line < self.buffer.line_count() {
+                            self.buffer.delete_char(line, 0);
+                        }
+                    }
+
+                    let deleted_count = end - start + 1;
+                    self.message = Some(format!("{} line{} deleted", deleted_count, if deleted_count != 1 { "s" } else { "" }));
+                    self.clamp_cursor();
+                } else {
+                    self.message = Some("No range specified".to_string());
                 }
             }
             Command::Set { option, value } => {
