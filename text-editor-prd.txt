@@ -11,9 +11,8 @@
 
 ## Phase 4: Vim Modal System (0 tasks remaining - COMPLETE)
 
-## Phase 5: Vim Motions (2 tasks remaining)
+## Phase 5: Vim Motions (1 task remaining)
 (B) 2026-01-09 Implement mark jump motions (', `, g;, g,) +vim-motions @implementation
-(C) 2026-01-09 Implement text object motions (aw, iw, ap, ip, a", i", a', i', a), i), etc) +vim-motions @implementation
 
 ## Phase 6: Vim Operators (0 tasks remaining - COMPLETE)
 

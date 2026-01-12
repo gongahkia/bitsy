@@ -52,6 +52,13 @@ pub struct Editor {
     search_buffer: String,
     search_pattern: Option<String>,
     search_forward: bool, // Direction of last search
+    pending_text_object: Option<TextObjectModifier>, // Waiting for text object (a or i)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TextObjectModifier {
+    Around, // a (includes surrounding whitespace/delimiters)
+    Inner,  // i (excludes surrounding whitespace/delimiters)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -98,6 +105,7 @@ impl Editor {
             search_buffer: String::new(),
             search_pattern: None,
             search_forward: true,
+            pending_text_object: None,
         })
     }
 
@@ -173,15 +181,30 @@ impl Editor {
                 map_key(key, &self.mode)
             };
 
-            // Handle operator-motion composition
+            // Handle text object composition (for operators like daw, ci", etc.)
             if self.pending_operator != PendingOperator::None {
-                self.handle_operator_motion(action)?;
+                // Check if user is entering a text object (a or i)
+                if matches!(key.code, KeyCode::Char('a') | KeyCode::Char('i')) && self.pending_text_object.is_none() {
+                    self.pending_text_object = if key.code == KeyCode::Char('a') {
+                        Some(TextObjectModifier::Around)
+                    } else {
+                        Some(TextObjectModifier::Inner)
+                    };
+                    return Ok(());
+                } else if self.pending_text_object.is_some() {
+                    // User has typed a/i, now waiting for text object type
+                    self.handle_text_object(key)?;
+                    return Ok(());
+                } else {
+                    // Normal operator-motion composition
+                    self.handle_operator_motion(action)?;
+                }
             } else {
                 self.execute_action(action)?;
             }
 
             // Reset count after executing action (unless waiting for more input)
-            if self.pending_operator == PendingOperator::None && self.pending_key.is_none() {
+            if self.pending_operator == PendingOperator::None && self.pending_key.is_none() && self.pending_text_object.is_none() {
                 self.count = 0;
             }
         }
@@ -263,6 +286,69 @@ impl Editor {
             }
             _ => {}
         }
+        Ok(())
+    }
+
+    fn handle_text_object(&mut self, key: KeyEvent) -> Result<()> {
+        let modifier = self.pending_text_object.unwrap();
+
+        match key.code {
+            KeyCode::Char('w') => {
+                // Word text object
+                self.apply_text_object_word(modifier)?;
+            }
+            KeyCode::Char('W') => {
+                // WORD text object (space-separated)
+                self.apply_text_object_word_big(modifier)?;
+            }
+            KeyCode::Char('p') => {
+                // Paragraph text object
+                self.apply_text_object_paragraph(modifier)?;
+            }
+            KeyCode::Char('"') => {
+                // Double quote text object
+                self.apply_text_object_quote(modifier, '"')?;
+            }
+            KeyCode::Char('\'') => {
+                // Single quote text object
+                self.apply_text_object_quote(modifier, '\'')?;
+            }
+            KeyCode::Char('`') => {
+                // Backtick text object
+                self.apply_text_object_quote(modifier, '`')?;
+            }
+            KeyCode::Char('(') | KeyCode::Char(')') => {
+                // Parentheses text object
+                self.apply_text_object_bracket(modifier, '(', ')')?;
+            }
+            KeyCode::Char('[') | KeyCode::Char(']') => {
+                // Square bracket text object
+                self.apply_text_object_bracket(modifier, '[', ']')?;
+            }
+            KeyCode::Char('{') | KeyCode::Char('}') => {
+                // Curly brace text object
+                self.apply_text_object_bracket(modifier, '{', '}')?;
+            }
+            KeyCode::Char('<') | KeyCode::Char('>') => {
+                // Angle bracket text object
+                self.apply_text_object_bracket(modifier, '<', '>')?;
+            }
+            KeyCode::Esc => {
+                // Cancel
+                self.pending_operator = PendingOperator::None;
+                self.pending_text_object = None;
+                return Ok(());
+            }
+            _ => {
+                // Unknown text object, cancel
+                self.pending_operator = PendingOperator::None;
+                self.pending_text_object = None;
+            }
+        }
+
+        self.pending_text_object = None;
+        self.pending_operator = PendingOperator::None;
+        self.clamp_cursor();
         Ok(())
     }
 
@@ -421,6 +507,237 @@ impl Editor {
         }
 
         false
+    }
+
+    fn apply_text_object_word(&mut self, modifier: TextObjectModifier) -> Result<()> {
+        // Find word boundaries around cursor
+        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+            let chars: Vec<char> = line_text.chars().collect();
+            if chars.is_empty() {
+                return Ok(());
+            }
+
+            let mut start = self.cursor.col.min(chars.len().saturating_sub(1));
+            let mut end = start;
+
+            // If on whitespace, move to next word for 'aw', stay for 'iw'
+            if start < chars.len() && chars[start].is_whitespace() {
+                if matches!(modifier, TextObjectModifier::Around) {
+                    // Skip whitespace to find next word
+                    while end < chars.len() && chars[end].is_whitespace() {
+                        end += 1;
+                    }
+                    if end < chars.len() {
+                        start = end;
+                    }
+                }
+            }
+
+            // Find word start
+            while start > 0 && !chars[start - 1].is_whitespace() {
+                start -= 1;
+            }
+
+            // Find word end
+            while end < chars.len() && !chars[end].is_whitespace() {
+                end += 1;
+            }
+
+            // For 'aw', include trailing whitespace
+            if matches!(modifier, TextObjectModifier::Around) {
+                while end < chars.len() && chars[end].is_whitespace() {
+                    end += 1;
+                }
+                // If no trailing whitespace, include leading whitespace
+                if end == chars.len() || !chars[end - 1].is_whitespace() {
+                    while start > 0 && chars[start - 1].is_whitespace() {
+                        start -= 1;
+                    }
+                }
+            }
+
+            let line = self.cursor.line;
+            self.apply_operator_to_range(line, start, line, end)?;
+        }
+        Ok(())
+    }
+
+    fn apply_text_object_word_big(&mut self, modifier: TextObjectModifier) -> Result<()> {
+        // Similar to apply_text_object_word but for WORD (space-separated)
+        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+            let chars: Vec<char> = line_text.chars().collect();
+            if chars.is_empty() {
+                return Ok(());
+            }
+
+            let mut start = self.cursor.col.min(chars.len().saturating_sub(1));
+            let mut end = start;
+
+            // Find WORD start
+            while start > 0 && !chars[start - 1].is_whitespace() {
+                start -= 1;
+            }
+
+            // Find WORD end
+            while end < chars.len() && !chars[end].is_whitespace() {
+                end += 1;
+            }
+
+            // For 'aW', include trailing whitespace
+            if matches!(modifier, TextObjectModifier::Around) {
+                while end < chars.len() && chars[end].is_whitespace() {
+                    end += 1;
+                }
+            }
+
+            let line = self.cursor.line;
+            self.apply_operator_to_range(line, start, line, end)?;
+        }
+        Ok(())
+    }
+
+    fn apply_text_object_paragraph(&mut self, modifier: TextObjectModifier) -> Result<()> {
+        let line_count = self.buffer.line_count();
+        let mut start_line = self.cursor.line;
+        let mut end_line = self.cursor.line;
+
+        // Find paragraph start
+        while start_line > 0 {
+            if let Some(text) = self.buffer.get_line(start_line - 1) {
+                if text.trim().is_empty() {
+                    break;
+                }
+            }
+            start_line -= 1;
+        }
+
+        // Find paragraph end
+        while end_line < line_count - 1 {
+            if let Some(text) = self.buffer.get_line(end_line + 1) {
+                if text.trim().is_empty() {
+                    end_line += 1;
+                    break;
+                }
+            }
+            end_line += 1;
+        }
+
+        // For 'ap', include blank lines
+        if matches!(modifier, TextObjectModifier::Around) {
+            while end_line < line_count - 1 {
+                if let Some(text) = self.buffer.get_line(end_line + 1) {
+                    if !text.trim().is_empty() {
+                        break;
+                    }
+                    end_line += 1;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        self.apply_operator_to_range(start_line, 0, end_line, self.buffer.line_len(end_line))?;
+        Ok(())
+    }
+
+    fn apply_text_object_quote(&mut self, modifier: TextObjectModifier, quote: char) -> Result<()> {
+        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+            let chars: Vec<char> = line_text.chars().collect();
+            if chars.is_empty() {
+                return Ok(());
+            }
+
+            let cursor_pos = self.cursor.col.min(chars.len().saturating_sub(1));
+
+            // Find the quote pair around cursor
+            let mut start = None;
+            let mut end = None;
+
+            // Search backward for opening quote
+            for i in (0..=cursor_pos).rev() {
+                if chars[i] == quote {
+                    start = Some(i);
+                    break;
+                }
+            }
+
+            // Search forward for closing quote
+            if let Some(start_pos) = start {
+                for i in (start_pos + 1)..chars.len() {
+                    if chars[i] == quote {
+                        end = Some(i);
+                        break;
+                    }
+                }
+            }
+
+            if let (Some(s), Some(e)) = (start, end) {
+                let (range_start, range_end) = match modifier {
+                    TextObjectModifier::Inner => (s + 1, e),
+                    TextObjectModifier::Around => (s, e + 1),
+                };
+
+                let line = self.cursor.line;
+                self.apply_operator_to_range(line, range_start, line, range_end)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn apply_text_object_bracket(&mut self, modifier: TextObjectModifier, open: char, close: char) -> Result<()> {
+        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+            let chars: Vec<char> = line_text.chars().collect();
+            if chars.is_empty() {
+                return Ok(());
+            }
+
+            let cursor_pos = self.cursor.col.min(chars.len().saturating_sub(1));
+
+            // Find matching brackets around cursor
+            let mut start = None;
+            let mut end = None;
+            let mut depth = 0;
+
+            // Search backward for opening bracket
+            for i in (0..=cursor_pos).rev() {
+                if chars[i] == close {
+                    depth += 1;
+                } else if chars[i] == open {
+                    if depth == 0 {
+                        start = Some(i);
+                        break;
+                    }
+                    depth -= 1;
+                }
+            }
+
+            // Search forward for closing bracket
+            if let Some(start_pos) = start {
+                depth = 0;
+                for i in start_pos..chars.len() {
+                    if chars[i] == open {
+                        depth += 1;
+                    } else if chars[i] == close {
+                        depth -= 1;
+                        if depth == 0 {
+                            end = Some(i);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if let (Some(s), Some(e)) = (start, end) {
+                let (range_start, range_end) = match modifier {
+                    TextObjectModifier::Inner => (s + 1, e),
+                    TextObjectModifier::Around => (s, e + 1),
+                };
+
+                let line = self.cursor.line;
+                self.apply_operator_to_range(line, range_start, line, range_end)?;
+            }
+        }
+        Ok(())
     }
 
     fn handle_operator_motion(&mut self, action: Action) -> Result<()> {
