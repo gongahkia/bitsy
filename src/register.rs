@@ -26,6 +26,9 @@ pub struct RegisterManager {
     last_yank: RegisterContent,
     last_delete: RegisterContent,
     clipboard: Option<Clipboard>,
+    filename: String, // %
+    last_command: String, // :
+    last_inserted: String, // .
 }
 
 impl RegisterManager {
@@ -36,11 +39,26 @@ impl RegisterManager {
             last_yank: RegisterContent::Char(String::new()),
             last_delete: RegisterContent::Char(String::new()),
             clipboard: Clipboard::new().ok(),
+            filename: String::new(),
+            last_command: String::new(),
+            last_inserted: String::new(),
         }
     }
 
     pub fn set(&mut self, register: Option<char>, content: RegisterContent) {
-        // Store in unnamed register
+        // Black hole register: do nothing
+        if register == Some('_') {
+            return;
+        }
+
+        // Read-only registers: ignore set
+        if let Some(reg) = register {
+            if matches!(reg, '%' | '#' | ':' | '.') {
+                return;
+            }
+        }
+
+        // Store in unnamed register (unless it's the black hole, which we already handled)
         self.unnamed = content.clone();
 
         // Store in specified register if provided
@@ -49,7 +67,8 @@ impl RegisterManager {
                 if let Some(cb) = &mut self.clipboard {
                     let _ = cb.set_text(content.as_string());
                 }
-            } else {
+            }
+            else {
                 self.registers.insert(reg, content.clone());
             }
         }
@@ -70,6 +89,11 @@ impl RegisterManager {
             None => Some(self.unnamed.clone()),
             Some('0') => Some(self.last_yank.clone()),
             Some('"') => Some(self.unnamed.clone()),
+            Some('_') => None, // Black hole is empty
+            Some('%') => Some(RegisterContent::Char(self.filename.clone())),
+            Some(':') => Some(RegisterContent::Char(self.last_command.clone())),
+            Some('.') => Some(RegisterContent::Char(self.last_inserted.clone())),
+            Some('#') => None, // Alternate file not implemented
             Some('+') | Some('*') => {
                 if let Some(cb) = &mut self.clipboard {
                     if let Ok(text) = cb.get_text() {
@@ -83,6 +107,18 @@ impl RegisterManager {
             }
             _ => None,
         }
+    }
+
+    pub fn update_filename(&mut self, name: String) {
+        self.filename = name;
+    }
+
+    pub fn update_last_command(&mut self, cmd: String) {
+        self.last_command = cmd;
+    }
+
+    pub fn update_last_inserted(&mut self, text: String) {
+        self.last_inserted = text;
     }
 
     pub fn get_unnamed(&self) -> &RegisterContent {

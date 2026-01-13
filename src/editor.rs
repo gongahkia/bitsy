@@ -139,8 +139,9 @@ impl Editor {
     }
 
     pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
-        self.buffer = Buffer::from_file(path)?;
+        self.buffer = Buffer::from_file(&path)?;
         self.cursor = Cursor::default();
+        self.registers.update_filename(path.as_ref().to_string_lossy().to_string());
         Ok(())
     }
 
@@ -558,6 +559,7 @@ impl Editor {
     }
 
     fn execute_command(&mut self) -> Result<()> {
+        self.registers.update_last_command(self.command_buffer.clone());
         let cmd = parse_command(&self.command_buffer)?;
 
         match cmd {
