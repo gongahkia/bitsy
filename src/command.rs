@@ -24,6 +24,9 @@ pub enum Command {
     BufferPrevious,
     BufferList,
     BufferDelete(Option<usize>),
+    Split,
+    VerticalSplit,
+    CloseWindow,
     Unknown(String),
 }
 
@@ -84,6 +87,12 @@ pub fn parse_command(input: &str) -> Result<Command> {
                 } else {
                     Ok(Command::Unknown(command.to_string()))
                 }
+            } else if command == "sp" || command == "split" {
+                Ok(Command::Split)
+            } else if command == "vsp" || command == "vsplit" {
+                Ok(Command::VerticalSplit)
+            } else if command == "close" || command == "clo" {
+                Ok(Command::CloseWindow)
             } else {
                 Ok(Command::Unknown(command.to_string()))
             }

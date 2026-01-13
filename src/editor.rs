@@ -580,6 +580,15 @@ impl Editor {
                 // Cannot delete the only buffer
                 self.message = Some("Cannot delete last buffer".to_string());
             }
+            Command::Split => {
+                self.message = Some("Horizontal split not yet implemented".to_string());
+            }
+            Command::VerticalSplit => {
+                self.message = Some("Vertical split not yet implemented".to_string());
+            }
+            Command::CloseWindow => {
+                self.message = Some("Window closing not yet implemented".to_string());
+            }
             Command::Unknown(cmd) => {
                 self.message = Some(format!("Unknown command: {}", cmd));
             }
