@@ -108,6 +108,8 @@ pub enum Action {
     JumpToMarkExact(char), // `{char} (jump to mark exact position)
     JumpToChangeNext,    // g; (jump to next change)
     JumpToChangePrev,    // g, (jump to previous change)
+    JumpBack,            // Ctrl-o
+    JumpForward,         // Ctrl-i
 
     // Other
     RepeatLastChange,    // . (dot command)
@@ -135,6 +137,8 @@ fn map_normal_mode_key(key: KeyEvent) -> Action {
         KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::MoveHalfPageUp,
         KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::MoveHalfPageDown,
         KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::Redo,
+        KeyCode::Char('o') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::JumpBack,
+        KeyCode::Char('i') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::JumpForward,
 
         // Movement
         KeyCode::Char('h') => Action::MoveLeft,

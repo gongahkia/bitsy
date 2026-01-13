@@ -65,6 +65,8 @@ pub struct Editor {
     history_index: Option<usize>,
     completion_candidates: Vec<String>,
     completion_index: Option<usize>,
+    jump_list: Vec<(usize, usize)>,
+    jump_index: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -135,6 +137,8 @@ impl Editor {
             history_index: None,
             completion_candidates: Vec::new(),
             completion_index: None,
+            jump_list: Vec::new(),
+            jump_index: 0,
         })
     }
 
@@ -1572,8 +1576,20 @@ impl Editor {
     }
 
     fn save_jump_position(&mut self) {
-        self.buffer.set_mark('\'', (self.cursor.line, self.cursor.col));
-        self.buffer.set_mark('`', (self.cursor.line, self.cursor.col));
+        let pos = (self.cursor.line, self.cursor.col);
+        self.buffer.set_mark('\'', pos);
+        self.buffer.set_mark('`', pos);
+
+        // If we traveled back in history, truncate future
+        if self.jump_index < self.jump_list.len().saturating_sub(1) {
+            self.jump_list.truncate(self.jump_index + 1);
+        }
+
+        // Add current position if list is empty or different from last entry
+        if self.jump_list.is_empty() || self.jump_list.last() != Some(&pos) {
+            self.jump_list.push(pos);
+            self.jump_index = self.jump_list.len().saturating_sub(1);
+        }
     }
 
     fn execute_action(&mut self, action: Action) -> Result<()> {
@@ -2211,6 +2227,37 @@ impl Editor {
                 if self.change_index > 0 {
                     self.change_index -= 1;
                     let (line, col) = self.change_list[self.change_index];
+                    self.cursor.line = line.min(self.buffer.line_count().saturating_sub(1));
+                    self.cursor.col = col;
+                    self.clamp_cursor();
+                }
+            }
+            Action::JumpBack => {
+                if self.jump_list.is_empty() {
+                    return Ok(());
+                }
+                
+                let current_pos = (self.cursor.line, self.cursor.col);
+                // If we are at the tip and have drifted, save current position
+                if self.jump_index == self.jump_list.len() - 1 {
+                    if self.jump_list[self.jump_index] != current_pos {
+                        self.jump_list.push(current_pos);
+                        self.jump_index = self.jump_list.len() - 1;
+                    }
+                }
+                
+                if self.jump_index > 0 {
+                    self.jump_index -= 1;
+                    let (line, col) = self.jump_list[self.jump_index];
+                    self.cursor.line = line.min(self.buffer.line_count().saturating_sub(1));
+                    self.cursor.col = col;
+                    self.clamp_cursor();
+                }
+            }
+            Action::JumpForward => {
+                if self.jump_index < self.jump_list.len().saturating_sub(1) {
+                    self.jump_index += 1;
+                    let (line, col) = self.jump_list[self.jump_index];
                     self.cursor.line = line.min(self.buffer.line_count().saturating_sub(1));
                     self.cursor.col = col;
                     self.clamp_cursor();
