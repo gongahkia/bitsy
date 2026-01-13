@@ -34,6 +34,9 @@ toml = "0.8"
 # Regex for search (for later phases)
 regex = "1.11"
 
+# Clipboard support
+arboard = "3.4"
+
 # Platform-specific dependencies
 [target.'cfg(unix)'.dependencies]
 # Unix-specific dependencies can be added here if needed

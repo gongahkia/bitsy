@@ -1,6 +1,7 @@
 // Register system for yank, delete, and clipboard operations
 
 use std::collections::HashMap;
+use arboard::Clipboard;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RegisterContent {
@@ -24,6 +25,7 @@ pub struct RegisterManager {
     unnamed: RegisterContent,
     last_yank: RegisterContent,
     last_delete: RegisterContent,
+    clipboard: Option<Clipboard>,
 }
 
 impl RegisterManager {
@@ -33,6 +35,7 @@ impl RegisterManager {
             unnamed: RegisterContent::Char(String::new()),
             last_yank: RegisterContent::Char(String::new()),
             last_delete: RegisterContent::Char(String::new()),
+            clipboard: Clipboard::new().ok(),
         }
     }
 
@@ -42,7 +45,13 @@ impl RegisterManager {
 
         // Store in specified register if provided
         if let Some(reg) = register {
-            self.registers.insert(reg, content.clone());
+            if reg == '+' || reg == '*' {
+                if let Some(cb) = &mut self.clipboard {
+                    let _ = cb.set_text(content.as_string());
+                }
+            } else {
+                self.registers.insert(reg, content.clone());
+            }
         }
     }
 
@@ -56,13 +65,21 @@ impl RegisterManager {
         self.set(register, content);
     }
 
-    pub fn get(&self, register: Option<char>) -> Option<&RegisterContent> {
+    pub fn get(&mut self, register: Option<char>) -> Option<RegisterContent> {
         match register {
-            None => Some(&self.unnamed),
-            Some('0') => Some(&self.last_yank),
-            Some('"') => Some(&self.unnamed),
+            None => Some(self.unnamed.clone()),
+            Some('0') => Some(self.last_yank.clone()),
+            Some('"') => Some(self.unnamed.clone()),
+            Some('+') | Some('*') => {
+                if let Some(cb) = &mut self.clipboard {
+                    if let Ok(text) = cb.get_text() {
+                        return Some(RegisterContent::Char(text));
+                    }
+                }
+                None
+            }
             Some(reg) if ('a'..='z').contains(&reg) || ('A'..='Z').contains(&reg) => {
-                self.registers.get(&reg)
+                self.registers.get(&reg).cloned()
             }
             _ => None,
         }
