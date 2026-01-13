@@ -710,6 +710,18 @@ impl Editor {
             Command::CloseWindow => {
                 self.message = Some("Window closing not yet implemented".to_string());
             }
+            Command::Registers => {
+                let regs = self.registers.get_all_registers();
+                if regs.is_empty() {
+                    self.message = Some("No registers populated".to_string());
+                } else {
+                    let output = regs.iter()
+                        .map(|(k, v)| format!("\"{} {}", k, v))
+                        .collect::<Vec<_>>()
+                        .join("  ");
+                    self.message = Some(output);
+                }
+            }
             Command::Unknown(cmd) => {
                 self.message = Some(format!("Unknown command: {}", cmd));
             }

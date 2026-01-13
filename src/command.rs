@@ -27,6 +27,7 @@ pub enum Command {
     Split,
     VerticalSplit,
     CloseWindow,
+    Registers,
     Unknown(String),
 }
 
@@ -93,6 +94,8 @@ pub fn parse_command(input: &str) -> Result<Command> {
                 Ok(Command::VerticalSplit)
             } else if command == "close" || command == "clo" {
                 Ok(Command::CloseWindow)
+            } else if command == "reg" || command == "registers" {
+                Ok(Command::Registers)
             } else {
                 Ok(Command::Unknown(command.to_string()))
             }

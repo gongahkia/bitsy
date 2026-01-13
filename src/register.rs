@@ -124,6 +124,45 @@ impl RegisterManager {
     pub fn get_unnamed(&self) -> &RegisterContent {
         &self.unnamed
     }
+
+    pub fn get_all_registers(&self) -> Vec<(char, String)> {
+        let mut results = Vec::new();
+
+        // Special registers
+        results.push(('"', self.unnamed.as_string()));
+        if !self.last_yank.as_string().is_empty() {
+            results.push(('0', self.last_yank.as_string()));
+        }
+        if !self.filename.is_empty() {
+            results.push(('%', self.filename.clone()));
+        }
+        if !self.last_command.is_empty() {
+            results.push((':', self.last_command.clone()));
+        }
+        if !self.last_inserted.is_empty() {
+            results.push(('.', self.last_inserted.clone()));
+        }
+
+        // Named registers
+        let mut named: Vec<_> = self.registers.iter().collect();
+        named.sort_by_key(|(k, _)| *k);
+        for (k, v) in named {
+            results.push((*k, v.as_string()));
+        }
+        
+        // Trim content for display (first line/first 50 chars)
+        for (_, content) in &mut results {
+            if let Some(idx) = content.find('\n') {
+                content.truncate(idx);
+                content.push_str("...");
+            } else if content.len() > 50 {
+                content.truncate(47);
+                content.push_str("...");
+            }
+        }
+
+        results
+    }
 }
 
 impl Default for RegisterManager {
