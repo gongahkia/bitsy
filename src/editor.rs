@@ -57,7 +57,7 @@ pub struct Editor {
     pending_text_object: Option<TextObjectModifier>, // Waiting for text object (a or i)
     pending_register: Option<char>, // Register selected with " prefix
     waiting_for_register: bool, // True when " was just pressed
-    marks: HashMap<char, (usize, usize)>, // Mark positions (line, col)
+    global_marks: HashMap<char, (usize, usize)>, // Global mark positions (line, col)
     change_list: Vec<(usize, usize)>, // List of change positions
     change_index: usize, // Current position in change list
     waiting_for_mark: Option<MarkAction>, // Waiting for mark character after m, ', or `
@@ -127,7 +127,7 @@ impl Editor {
             pending_text_object: None,
             pending_register: None,
             waiting_for_register: false,
-            marks: HashMap::new(),
+            global_marks: HashMap::new(),
             change_list: Vec::new(),
             change_index: 0,
             waiting_for_mark: None,
@@ -187,17 +187,37 @@ impl Editor {
                     self.waiting_for_mark = None;
                     match mark_action {
                         MarkAction::Set => {
-                            self.marks.insert(c, (self.cursor.line, self.cursor.col));
+                            if ('a'..='z').contains(&c) {
+                                self.buffer.set_mark(c, (self.cursor.line, self.cursor.col));
+                            } else if ('A'..='Z').contains(&c) {
+                                self.global_marks.insert(c, (self.cursor.line, self.cursor.col));
+                            }
                         }
                         MarkAction::Jump => {
-                            if let Some(&(line, _col)) = self.marks.get(&c) {
+                            let pos = if ('a'..='z').contains(&c) {
+                                self.buffer.get_mark(c)
+                            } else if ('A'..='Z').contains(&c) {
+                                self.global_marks.get(&c).cloned()
+                            } else {
+                                None
+                            };
+
+                            if let Some((line, _col)) = pos {
                                 self.cursor.line = line.min(self.buffer.line_count().saturating_sub(1));
                                 self.cursor.col = 0;
                                 self.clamp_cursor();
                             }
                         }
                         MarkAction::JumpExact => {
-                            if let Some(&(line, col)) = self.marks.get(&c) {
+                            let pos = if ('a'..='z').contains(&c) {
+                                self.buffer.get_mark(c)
+                            } else if ('A'..='Z').contains(&c) {
+                                self.global_marks.get(&c).cloned()
+                            } else {
+                                None
+                            };
+
+                            if let Some((line, col)) = pos {
                                 self.cursor.line = line.min(self.buffer.line_count().saturating_sub(1));
                                 self.cursor.col = col;
                                 self.clamp_cursor();

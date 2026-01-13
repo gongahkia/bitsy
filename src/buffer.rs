@@ -1,6 +1,7 @@
 // Text buffer implementation using ropey
 
 use ropey::Rope;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -52,6 +53,7 @@ pub struct Buffer {
     file_path: Option<PathBuf>,
     modified: bool,
     line_ending: LineEnding,
+    marks: HashMap<char, (usize, usize)>,
 }
 
 impl Buffer {
@@ -61,6 +63,7 @@ impl Buffer {
             file_path: None,
             modified: false,
             line_ending: LineEnding::default(),
+            marks: HashMap::new(),
         }
     }
 
@@ -79,7 +82,16 @@ impl Buffer {
             file_path: Some(path.as_ref().to_path_buf()),
             modified: false,
             line_ending,
+            marks: HashMap::new(),
         })
+    }
+
+    pub fn get_mark(&self, mark: char) -> Option<(usize, usize)> {
+        self.marks.get(&mark).cloned()
+    }
+
+    pub fn set_mark(&mut self, mark: char, pos: (usize, usize)) {
+        self.marks.insert(mark, pos);
     }
 
     pub fn save(&mut self) -> Result<()> {
