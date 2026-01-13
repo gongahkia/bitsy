@@ -618,6 +618,7 @@ impl Editor {
                 }
             }
             Command::GoToLine(line_num) => {
+                self.save_jump_position();
                 // Convert 1-indexed to 0-indexed
                 let target_line = line_num.saturating_sub(1);
                 self.cursor.line = target_line.min(self.buffer.line_count().saturating_sub(1));
@@ -795,15 +796,21 @@ impl Editor {
                 self.cursor.col.saturating_sub(1)
             };
 
+            let old_pos = (self.cursor.line, self.cursor.col);
+
             if self.search_forward {
                 // Search forward
                 if self.search_forward_from(start_line, start_col, &pattern) {
+                    self.buffer.set_mark('\'', old_pos);
+                    self.buffer.set_mark('`', old_pos);
                     return Ok(());
                 }
                 self.message = Some("Pattern not found".to_string());
             } else {
                 // Search backward
                 if self.search_backward_from(start_line, start_col, &pattern) {
+                    self.buffer.set_mark('\'', old_pos);
+                    self.buffer.set_mark('`', old_pos);
                     return Ok(());
                 }
                 self.message = Some("Pattern not found".to_string());
@@ -1352,6 +1359,10 @@ impl Editor {
                 let char_count = yanked_text.len();
                 self.registers.set_yank(None, RegisterContent::Char(yanked_text));
                 self.message = Some(format!("Yanked {} characters", char_count));
+                
+                // Set change marks
+                self.buffer.set_mark('[', (start_line, start_col));
+                self.buffer.set_mark(']', (end_line, end_col));
             }
             PendingOperator::Change => {
                 // Get the text being deleted
@@ -1560,6 +1571,11 @@ impl Editor {
         }
     }
 
+    fn save_jump_position(&mut self) {
+        self.buffer.set_mark('\'', (self.cursor.line, self.cursor.col));
+        self.buffer.set_mark('`', (self.cursor.line, self.cursor.col));
+    }
+
     fn execute_action(&mut self, action: Action) -> Result<()> {
         match action {
             // Movement
@@ -1603,6 +1619,7 @@ impl Editor {
                 self.cursor.move_to_line_end(line_len);
             }
             Action::MoveFileStart => {
+                self.save_jump_position();
                 // Support count: gg or 10gg (go to line 10)
                 if self.count > 0 {
                     // Count is 1-indexed, convert to 0-indexed
@@ -1613,6 +1630,7 @@ impl Editor {
                 self.cursor.col = 0;
             }
             Action::MoveFileEnd => {
+                self.save_jump_position();
                 self.cursor.line = self.buffer.line_count().saturating_sub(1);
                 self.cursor.col = 0;
             }
@@ -1728,6 +1746,7 @@ impl Editor {
                 }
             }
             Action::MoveMatchingBracket => {
+                self.save_jump_position();
                 self.move_to_matching_bracket();
             }
             Action::MovePageUp => {
@@ -1751,6 +1770,7 @@ impl Editor {
                 self.clamp_cursor();
             }
             Action::MoveToPercent => {
+                self.save_jump_position();
                 if self.count > 0 {
                     // Move to percentage of file (e.g., 50% goes to line at 50% of file)
                     let percent = self.count.min(100);
@@ -1812,6 +1832,14 @@ impl Editor {
                 self.command_buffer.clear();
             }
             Action::EnterNormalMode => {
+                if self.mode == Mode::Visual || self.mode == Mode::VisualLine {
+                    // Update < and > marks
+                    if let Some(selection) = &self.selection {
+                        let (start_pos, end_pos) = selection.range();
+                        self.buffer.set_mark('<', (start_pos.line, start_pos.col));
+                        self.buffer.set_mark('>', (end_pos.line, end_pos.col));
+                    }
+                }
                 self.mode = Mode::Normal;
                 self.selection = None; // Clear selection when leaving visual mode
                 // In normal mode, cursor should not go past last char
@@ -1932,6 +1960,8 @@ impl Editor {
                 }
             }
             Action::Paste => {
+                let start_pos = (self.cursor.line, self.cursor.col);
+                
                 // Paste after cursor (repeat count times)
                 let count = if self.count == 0 { 1 } else { self.count };
                 for _ in 0..count {
@@ -1972,8 +2002,14 @@ impl Editor {
                         }
                     }
                 }
+                
+                let end_pos = (self.cursor.line, self.cursor.col);
+                self.buffer.set_mark('[', start_pos);
+                self.buffer.set_mark(']', end_pos);
             }
             Action::PasteBefore => {
+                let start_pos = (self.cursor.line, self.cursor.col);
+                
                 // Paste before cursor (repeat count times)
                 let count = if self.count == 0 { 1 } else { self.count };
                 for _ in 0..count {
@@ -2012,6 +2048,10 @@ impl Editor {
                         }
                     }
                 }
+                
+                let end_pos = (self.cursor.line, self.cursor.col);
+                self.buffer.set_mark('[', start_pos);
+                self.buffer.set_mark(']', end_pos);
             }
             Action::Join => {
                 // Join current line with next line
