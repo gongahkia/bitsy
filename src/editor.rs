@@ -747,6 +747,24 @@ impl Editor {
                     self.message = Some(output);
                 }
             }
+            Command::Marks => {
+                let mut marks = self.buffer.get_all_marks();
+                // Add global marks
+                for (k, v) in &self.global_marks {
+                    marks.push((*k, *v));
+                }
+                marks.sort_by_key(|(k, _)| *k);
+                
+                if marks.is_empty() {
+                    self.message = Some("No marks set".to_string());
+                } else {
+                    let output = marks.iter()
+                        .map(|(k, (line, col))| format!("{} {}:{}", k, line + 1, col))
+                        .collect::<Vec<_>>()
+                        .join("  ");
+                    self.message = Some(output);
+                }
+            }
             Command::Unknown(cmd) => {
                 self.message = Some(format!("Unknown command: {}", cmd));
             }

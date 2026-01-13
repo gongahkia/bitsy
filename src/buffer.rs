@@ -94,6 +94,12 @@ impl Buffer {
         self.marks.insert(mark, pos);
     }
 
+    pub fn get_all_marks(&self) -> Vec<(char, (usize, usize))> {
+        let mut marks: Vec<_> = self.marks.iter().map(|(k, v)| (*k, *v)).collect();
+        marks.sort_by_key(|(k, _)| *k);
+        marks
+    }
+
     pub fn save(&mut self) -> Result<()> {
         if let Some(ref path) = self.file_path {
             let content = self.rope.to_string();
