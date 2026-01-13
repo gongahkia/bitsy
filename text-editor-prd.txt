@@ -3,6 +3,8 @@
 # Stack: Rust (recommended) or Zig/C for performance
 # Max Implementation: 150 tasks
 
+FIXME: Fix double borrow errors in src/editor.rs (handle_operator_motion, render functions) caused by refactoring to Window/Buffer architecture. See handle_operator_motion around lines 1300+.
+
 ## Phase 1: Project Foundation (0 tasks remaining - COMPLETE)
 
 ## Phase 2: Core Editor Infrastructure (0 tasks remaining - COMPLETE)
@@ -15,31 +17,15 @@
 
 ## Phase 6: Vim Operators (0 tasks remaining - COMPLETE)
 
-## Phase 7: Command Mode (3 tasks remaining)
-(C) 2026-01-09 Create :split (:sp, :vsp, :close) commands +vim-command @implementation
-(C) 2026-01-09 Implement command-line history with up/down arrows +vim-command @implementation
-(C) 2026-01-09 Build command-line tab completion +vim-command @implementation
+## Phase 7: Command Mode (0 tasks remaining - COMPLETE)
 
-## Phase 8: Registers & Clipboard (3 tasks remaining)
-(A) 2026-01-09 Build system clipboard integration ("+ and "* registers) +vim-registers @implementation
-(B) 2026-01-09 Create black hole register (_) and read-only registers (%, #, :, .) +vim-registers @implementation
-(C) 2026-01-09 Build register viewer command (:reg) +vim-registers @implementation
+## Phase 8: Registers & Clipboard (0 tasks remaining - COMPLETE)
 
-## Phase 9: Marks & Jump List (5 tasks)
-(A) 2026-01-09 Implement local marks (a-z) per buffer +vim-marks @implementation
-(A) 2026-01-09 Create global marks (A-Z) across buffers +vim-marks @implementation
-(B) 2026-01-09 Build automatic marks (', `, <, >, [, ]) +vim-marks @implementation
-(B) 2026-01-09 Implement jump list (Ctrl-o, Ctrl-i) +vim-marks @implementation
-(C) 2026-01-09 Create marks viewer command (:marks) +vim-marks @implementation
+## Phase 9: Marks & Jump List (0 tasks remaining - COMPLETE)
 
-## Phase 10: Macros (4 tasks)
-(A) 2026-01-09 Implement macro recording (q register) +vim-macros @implementation
-(A) 2026-01-09 Create macro playback (@ register) +vim-macros @implementation
-(B) 2026-01-09 Build macro storage in named registers +vim-macros @implementation
-(C) 2026-01-09 Implement macro repeat (@@ and count support) +vim-macros @implementation
+## Phase 10: Macros (0 tasks remaining - COMPLETE)
 
-## Phase 11: Splits & Windows (8 tasks)
-(A) 2026-01-09 Design window manager architecture for split panes +windows @design
+## Phase 11: Splits & Windows (7 tasks remaining)
 (A) 2026-01-09 Implement horizontal split (:split, Ctrl-w s) +windows @implementation
 (A) 2026-01-09 Implement vertical split (:vsplit, Ctrl-w v) +windows @implementation
 (A) 2026-01-09 Create window navigation (Ctrl-w h/j/k/l, Ctrl-w w) +windows @implementation

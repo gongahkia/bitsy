@@ -16,6 +16,7 @@ pub mod selection;
 pub mod statusline;
 pub mod terminal;
 pub mod viewport;
+pub mod window;
 
 // Re-export commonly used types
 pub use editor::Editor;
