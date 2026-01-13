@@ -60,6 +60,8 @@ pub struct Editor {
     change_list: Vec<(usize, usize)>, // List of change positions
     change_index: usize, // Current position in change list
     waiting_for_mark: Option<MarkAction>, // Waiting for mark character after m, ', or `
+    command_history: Vec<String>,
+    history_index: Option<usize>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -126,6 +128,8 @@ impl Editor {
             change_list: Vec::new(),
             change_index: 0,
             waiting_for_mark: None,
+            command_history: Vec::new(),
+            history_index: None,
         })
     }
 
@@ -327,11 +331,50 @@ impl Editor {
             KeyCode::Esc => {
                 self.mode = Mode::Normal;
                 self.command_buffer.clear();
+                self.history_index = None;
             }
             KeyCode::Enter => {
+                if !self.command_buffer.is_empty() {
+                    // Add to history if different from last entry
+                    if self.command_history.last() != Some(&self.command_buffer) {
+                        self.command_history.push(self.command_buffer.clone());
+                    }
+                }
                 self.execute_command()?;
                 self.mode = Mode::Normal;
                 self.command_buffer.clear();
+                self.history_index = None;
+            }
+            KeyCode::Up => {
+                if self.command_history.is_empty() {
+                    return Ok(());
+                }
+
+                if self.history_index.is_none() {
+                    // Start navigating from end
+                    self.history_index = Some(self.command_history.len() - 1);
+                    self.command_buffer = self.command_history[self.command_history.len() - 1].clone();
+                } else {
+                    // Move up (backwards) in history
+                    let idx = self.history_index.unwrap();
+                    if idx > 0 {
+                        self.history_index = Some(idx - 1);
+                        self.command_buffer = self.command_history[idx - 1].clone();
+                    }
+                }
+            }
+            KeyCode::Down => {
+                if let Some(idx) = self.history_index {
+                    if idx + 1 < self.command_history.len() {
+                        // Move down (forwards) in history
+                        self.history_index = Some(idx + 1);
+                        self.command_buffer = self.command_history[idx + 1].clone();
+                    } else {
+                        // Moved past end of history, clear buffer
+                        self.history_index = None;
+                        self.command_buffer.clear();
+                    }
+                }
             }
             KeyCode::Char(c) => {
                 self.command_buffer.push(c);
@@ -340,6 +383,7 @@ impl Editor {
                 self.command_buffer.pop();
                 if self.command_buffer.is_empty() {
                     self.mode = Mode::Normal;
+                    self.history_index = None;
                 }
             }
             _ => {}
