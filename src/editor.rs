@@ -67,6 +67,9 @@ pub struct Editor {
     completion_index: Option<usize>,
     jump_list: Vec<(usize, usize)>,
     jump_index: usize,
+    recording_register: Option<char>,
+    macro_buffer: Vec<KeyEvent>,
+    last_macro_register: Option<char>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -139,6 +142,9 @@ impl Editor {
             completion_index: None,
             jump_list: Vec::new(),
             jump_index: 0,
+            recording_register: None,
+            macro_buffer: Vec::new(),
+            last_macro_register: None,
         })
     }
 
@@ -179,6 +185,23 @@ impl Editor {
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> Result<()> {
+        // Record key if recording macro
+        if self.recording_register.is_some() {
+            // Don't record 'q' if it's going to stop recording
+            if key.code == KeyCode::Char('q') && self.mode == Mode::Normal && self.pending_operator == PendingOperator::None && self.pending_key.is_none() && self.pending_text_object.is_none() && self.waiting_for_mark.is_none() && !self.waiting_for_register {
+                // Stop recording
+                if let Some(reg) = self.recording_register {
+                    self.registers.set(Some(reg), RegisterContent::Macro(self.macro_buffer.clone()));
+                    self.message = Some(format!("Recorded macro to @{}", reg));
+                }
+                self.recording_register = None;
+                self.macro_buffer.clear();
+                return Ok(());
+            } else {
+                self.macro_buffer.push(key);
+            }
+        }
+
         if self.mode == Mode::Command {
             self.handle_command_mode_key(key)?;
         } else if self.mode == Mode::Search {
@@ -233,7 +256,7 @@ impl Editor {
             }
 
             // Check for m, ', ` to start mark operations
-            if self.mode == Mode::Normal && self.waiting_for_mark.is_none() {
+            if self.mode == Mode::Normal && self.waiting_for_mark.is_none() && self.pending_operator == PendingOperator::None {
                 match key.code {
                     KeyCode::Char('m') => {
                         self.waiting_for_mark = Some(MarkAction::Set);
@@ -245,6 +268,17 @@ impl Editor {
                     }
                     KeyCode::Char('`') => {
                         self.waiting_for_mark = Some(MarkAction::JumpExact);
+                        return Ok(());
+                    }
+                    KeyCode::Char('q') => {
+                        if self.recording_register.is_none() {
+                            // Start waiting for register to record to
+                            self.pending_key = Some('q');
+                            return Ok(());
+                        }
+                    }
+                    KeyCode::Char('@') => {
+                        self.pending_key = Some('@');
                         return Ok(());
                     }
                     _ => {}
@@ -284,6 +318,26 @@ impl Editor {
 
             // Handle multi-key sequences (like gJ, gg, ge, etc.)
             let action = if let Some(prefix) = self.pending_key {
+                if prefix == 'q' {
+                    // Start recording to register
+                    if let KeyCode::Char(c) = key.code {
+                        if ('a'..='z').contains(&c) || ('0'..='9').contains(&c) {
+                            self.recording_register = Some(c);
+                            self.macro_buffer.clear();
+                            self.message = Some(format!("recording @{}", c));
+                        }
+                    }
+                    self.pending_key = None;
+                    return Ok(());
+                } else if prefix == '@' {
+                    // Play macro from register
+                    if let KeyCode::Char(c) = key.code {
+                        self.play_macro(c)?;
+                    }
+                    self.pending_key = None;
+                    return Ok(());
+                }
+                
                 let sequence_action = self.map_key_sequence(prefix, key);
                 self.pending_key = None; // Clear pending key after processing
                 sequence_action
@@ -1591,6 +1645,41 @@ impl Editor {
             self.change_list.remove(0);
             self.change_index = self.change_index.saturating_sub(1);
         }
+    }
+
+    fn play_macro(&mut self, reg_char: char) -> Result<()> {
+        let actual_reg = if reg_char == '@' {
+            self.last_macro_register
+        } else {
+            Some(reg_char)
+        };
+
+        if let Some(reg) = actual_reg {
+            self.last_macro_register = Some(reg);
+            
+            if let Some(RegisterContent::Macro(keys)) = self.registers.get(Some(reg)) {
+                let keys = keys.clone(); // Clone to avoid borrow checker issues
+                
+                // Play back keys
+                // We need to handle counts.
+                let count = if self.count == 0 { 1 } else { self.count };
+                
+                // Nesting protection? Vim allows recursion but checks depth.
+                // For now, let's just play it.
+                
+                for _ in 0..count {
+                    for key in &keys {
+                        self.handle_key(key.clone())?;
+                    }
+                }
+            } else {
+                self.message = Some(format!("Register @{} is empty or not a macro", reg));
+            }
+        } else {
+            self.message = Some("No previously executed macro".to_string());
+        }
+        
+        Ok(())
     }
 
     fn save_jump_position(&mut self) {

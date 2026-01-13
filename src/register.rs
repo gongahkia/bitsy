@@ -2,12 +2,14 @@
 
 use std::collections::HashMap;
 use arboard::Clipboard;
+use crossterm::event::KeyEvent;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RegisterContent {
     Char(String),      // Character-wise content
     Line(Vec<String>), // Line-wise content
     Block(Vec<String>), // Block-wise content
+    Macro(Vec<KeyEvent>), // Macro content
 }
 
 impl RegisterContent {
@@ -16,6 +18,7 @@ impl RegisterContent {
             RegisterContent::Char(s) => s.clone(),
             RegisterContent::Line(lines) => lines.join("\n") + "\n",
             RegisterContent::Block(lines) => lines.join("\n"),
+            RegisterContent::Macro(_) => "Macro[...]".to_string(),
         }
     }
 }
