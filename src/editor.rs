@@ -4,6 +4,7 @@ use crossterm::event::{Event, KeyCode, KeyEvent};
 use crossterm::style::Color;
 use std::collections::HashMap;
 use std::path::Path;
+use std::fs;
 
 use crate::buffer::Buffer;
 use crate::command::{parse_command, Command};
@@ -62,6 +63,8 @@ pub struct Editor {
     waiting_for_mark: Option<MarkAction>, // Waiting for mark character after m, ', or `
     command_history: Vec<String>,
     history_index: Option<usize>,
+    completion_candidates: Vec<String>,
+    completion_index: Option<usize>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -130,6 +133,8 @@ impl Editor {
             waiting_for_mark: None,
             command_history: Vec::new(),
             history_index: None,
+            completion_candidates: Vec::new(),
+            completion_index: None,
         })
     }
 
@@ -326,12 +331,55 @@ impl Editor {
         }
     }
 
+    fn generate_completions(&mut self) {
+        let input = self.command_buffer.trim();
+        if input.is_empty() {
+            return;
+        }
+
+        self.completion_candidates.clear();
+
+        if input.starts_with("e ") || input.starts_with("edit ") {
+            // File completion
+            let prefix = if let Some(p) = input.strip_prefix("e ") { p } else { input.strip_prefix("edit ").unwrap() };
+            // Simple handling for now: just list current directory
+            let dir = "."; 
+            
+            if let Ok(entries) = fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    if let Ok(name) = entry.file_name().into_string() {
+                        if name.starts_with(prefix) {
+                             let cmd_prefix = if input.starts_with("e ") { "e " } else { "edit " };
+                             self.completion_candidates.push(format!("{}{}", cmd_prefix, name));
+                        }
+                    }
+                }
+            }
+        } else if !input.contains(' ') {
+            // Command completion
+            let commands = vec![
+                "w", "write", "q", "quit", "wq", "x", "q!", "e", "edit", 
+                "bn", "bnext", "bp", "bprevious", "bd", "bdelete", "ls", "buffers",
+                "sp", "split", "vsp", "vsplit", "close", "help", "set"
+            ];
+            
+            for cmd in commands {
+                if cmd.starts_with(input) {
+                    self.completion_candidates.push(cmd.to_string());
+                }
+            }
+        }
+        self.completion_candidates.sort();
+    }
+
     fn handle_command_mode_key(&mut self, key: KeyEvent) -> Result<()> {
         match key.code {
             KeyCode::Esc => {
                 self.mode = Mode::Normal;
                 self.command_buffer.clear();
                 self.history_index = None;
+                self.completion_candidates.clear();
+                self.completion_index = None;
             }
             KeyCode::Enter => {
                 if !self.command_buffer.is_empty() {
@@ -344,8 +392,12 @@ impl Editor {
                 self.mode = Mode::Normal;
                 self.command_buffer.clear();
                 self.history_index = None;
+                self.completion_candidates.clear();
+                self.completion_index = None;
             }
             KeyCode::Up => {
+                self.completion_candidates.clear();
+                self.completion_index = None;
                 if self.command_history.is_empty() {
                     return Ok(());
                 }
@@ -364,6 +416,8 @@ impl Editor {
                 }
             }
             KeyCode::Down => {
+                self.completion_candidates.clear();
+                self.completion_index = None;
                 if let Some(idx) = self.history_index {
                     if idx + 1 < self.command_history.len() {
                         // Move down (forwards) in history
@@ -376,11 +430,32 @@ impl Editor {
                     }
                 }
             }
+            KeyCode::Tab => {
+                if self.completion_candidates.is_empty() {
+                    // Generate candidates
+                    self.generate_completions();
+                    if !self.completion_candidates.is_empty() {
+                        self.completion_index = Some(0);
+                        self.command_buffer = self.completion_candidates[0].clone();
+                    }
+                } else {
+                    // Cycle through candidates
+                    if let Some(idx) = self.completion_index {
+                        let next_idx = (idx + 1) % self.completion_candidates.len();
+                        self.completion_index = Some(next_idx);
+                        self.command_buffer = self.completion_candidates[next_idx].clone();
+                    }
+                }
+            }
             KeyCode::Char(c) => {
                 self.command_buffer.push(c);
+                self.completion_candidates.clear();
+                self.completion_index = None;
             }
             KeyCode::Backspace => {
                 self.command_buffer.pop();
+                self.completion_candidates.clear();
+                self.completion_index = None;
                 if self.command_buffer.is_empty() {
                     self.mode = Mode::Normal;
                     self.history_index = None;
