@@ -5,7 +5,6 @@
 
 ## Phase 0
 
-(A) add multiline yank in visual line mode
 (A) add highlighting of all selections during %:s/
 (A) allow for multiline visual line mode selection and replace with select, :s and replace
 (A) Now have it such that after opening a file, it immediately launches a localhost markdown preview in a browser and make it split screen if possible
