@@ -5,6 +5,7 @@
 
 ## Phase 0
 
+(A) add multiline yank with copilot
 (A) Now have it such that after opening a file, it immediately launches a localhost markdown preview in a browser and make it split screen if possible
 (A) Add Goyo and Lightline functionality (zen mode, highlighting) out of the box with sensible keybinds
 
