@@ -2,6 +2,10 @@
 
 A Vim-compatible text editor written in Rust.
 
+<div align="center">
+    <img src="./asset/png-logo/spider.png" width="50%">
+</div>
+
 ## Features
 
 Bitsy is a terminal-based text editor that aims to provide a familiar Vim-like editing experience with modern features.
