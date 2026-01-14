@@ -17,7 +17,6 @@ use crate::register::{RegisterContent, RegisterManager};
 use crate::selection::Selection;
 use crate::statusline::StatusLine;
 use crate::terminal::Terminal;
-use crate::viewport::Viewport;
 use crate::window::{Window, Layout};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -2007,7 +2006,8 @@ impl Editor {
                 self.mode = Mode::Insert;
             }
             Action::EnterInsertModeNewLineAbove => {
-                self.current_buffer_mut().insert_newline(self.current_window().cursor.line, 0);
+                let line = self.current_window().cursor.line;
+                self.current_buffer_mut().insert_newline(line, 0);
                 self.current_window_mut().cursor.col = 0;
                 self.mode = Mode::Insert;
             }
@@ -2326,7 +2326,7 @@ impl Editor {
             }
 
             Action::Quit => {
-                if !self.buffer.is_modified() {
+                if !self.current_buffer().is_modified() {
                     self.should_quit = true;
                 } else {
                     self.message = Some("No write since last change".to_string());
@@ -2360,12 +2360,12 @@ impl Editor {
             }
             Action::SearchWordForward => {
                 // Search for word under cursor forward
-                if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+                if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
                     let chars: Vec<char> = line_text.chars().collect();
-                    if self.cursor.col < chars.len() {
+                    if self.current_window().cursor.col < chars.len() {
                         // Extract word under cursor
-                        let mut start = self.cursor.col;
-                        let mut end = self.cursor.col;
+                        let mut start = self.current_window().cursor.col;
+                        let mut end = self.current_window().cursor.col;
 
                         // Find word boundaries
                         while start > 0 && !chars[start - 1].is_whitespace() && chars[start - 1].is_alphanumeric() {
@@ -2386,12 +2386,12 @@ impl Editor {
             }
             Action::SearchWordBackward => {
                 // Search for word under cursor backward
-                if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+                if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
                     let chars: Vec<char> = line_text.chars().collect();
-                    if self.cursor.col < chars.len() {
+                    if self.current_window().cursor.col < chars.len() {
                         // Extract word under cursor
-                        let mut start = self.cursor.col;
-                        let mut end = self.cursor.col;
+                        let mut start = self.current_window().cursor.col;
+                        let mut end = self.current_window().cursor.col;
 
                         // Find word boundaries
                         while start > 0 && !chars[start - 1].is_whitespace() && chars[start - 1].is_alphanumeric() {
@@ -2416,8 +2416,8 @@ impl Editor {
                 if self.change_index < self.change_list.len().saturating_sub(1) {
                     self.change_index += 1;
                     let (line, col) = self.change_list[self.change_index];
-                    self.cursor.line = line.min(self.buffer.line_count().saturating_sub(1));
-                    self.cursor.col = col;
+                    self.current_window_mut().cursor.line = line.min(self.current_buffer().line_count().saturating_sub(1));
+                    self.current_window_mut().cursor.col = col;
                     self.clamp_cursor();
                 }
             }
@@ -2425,8 +2425,8 @@ impl Editor {
                 if self.change_index > 0 {
                     self.change_index -= 1;
                     let (line, col) = self.change_list[self.change_index];
-                    self.cursor.line = line.min(self.buffer.line_count().saturating_sub(1));
-                    self.cursor.col = col;
+                    self.current_window_mut().cursor.line = line.min(self.current_buffer().line_count().saturating_sub(1));
+                    self.current_window_mut().cursor.col = col;
                     self.clamp_cursor();
                 }
             }
@@ -2435,7 +2435,7 @@ impl Editor {
                     return Ok(());
                 }
                 
-                let current_pos = (self.cursor.line, self.cursor.col);
+                let current_pos = (self.current_window().cursor.line, self.current_window().cursor.col);
                 // If we are at the tip and have drifted, save current position
                 if self.jump_index == self.jump_list.len() - 1 {
                     if self.jump_list[self.jump_index] != current_pos {
@@ -2447,8 +2447,8 @@ impl Editor {
                 if self.jump_index > 0 {
                     self.jump_index -= 1;
                     let (line, col) = self.jump_list[self.jump_index];
-                    self.cursor.line = line.min(self.buffer.line_count().saturating_sub(1));
-                    self.cursor.col = col;
+                    self.current_window_mut().cursor.line = line.min(self.current_buffer().line_count().saturating_sub(1));
+                    self.current_window_mut().cursor.col = col;
                     self.clamp_cursor();
                 }
             }
@@ -2456,8 +2456,8 @@ impl Editor {
                 if self.jump_index < self.jump_list.len().saturating_sub(1) {
                     self.jump_index += 1;
                     let (line, col) = self.jump_list[self.jump_index];
-                    self.cursor.line = line.min(self.buffer.line_count().saturating_sub(1));
-                    self.cursor.col = col;
+                    self.current_window_mut().cursor.line = line.min(self.current_buffer().line_count().saturating_sub(1));
+                    self.current_window_mut().cursor.col = col;
                     self.clamp_cursor();
                 }
             }
@@ -2469,36 +2469,38 @@ impl Editor {
         self.clamp_cursor();
 
         // Update viewport to keep cursor visible
-        self.viewport.ensure_cursor_visible(self.cursor.line, self.cursor.col);
+        let cursor = self.current_window().cursor;
+        self.current_window_mut().viewport.ensure_cursor_visible(cursor.line, cursor.col);
 
         Ok(())
     }
 
     fn clamp_cursor(&mut self) {
-        let line_count = self.buffer.line_count().max(1);
-        self.cursor.line = self.cursor.line.min(line_count - 1);
+        let line_count = self.current_buffer().line_count().max(1);
+        self.current_window_mut().cursor.line = self.current_window().cursor.line.min(line_count - 1);
 
-        let line_len = self.buffer.line_len(self.cursor.line);
+        let line_len = self.current_buffer().line_len(self.current_window().cursor.line);
         if self.mode == Mode::Normal && line_len > 0 {
             // In normal mode, cursor can't go past last character
-            self.cursor.col = self.cursor.col.min(line_len.saturating_sub(1));
+            self.current_window_mut().cursor.col = self.current_window().cursor.col.min(line_len.saturating_sub(1));
         } else if self.mode == Mode::Insert {
             // In insert mode, cursor can be at end of line
-            self.cursor.col = self.cursor.col.min(line_len);
+            self.current_window_mut().cursor.col = self.current_window().cursor.col.min(line_len);
         }
 
         // Update selection if in visual mode
         if matches!(self.mode, Mode::Visual | Mode::VisualLine | Mode::VisualBlock) {
+            let cursor = self.current_window().cursor;
             if let Some(ref mut selection) = self.selection {
-                selection.update_cursor(self.cursor.into());
+                selection.update_cursor(cursor.into());
             }
         }
     }
 
     fn move_word_forward(&mut self) {
-        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
-            let mut chars = line_text.chars().skip(self.cursor.col).peekable();
-            let mut col = self.cursor.col;
+        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+            let mut chars = line_text.chars().skip(self.current_window().cursor.col).peekable();
+            let mut col = self.current_window().cursor.col;
 
             // Skip current word
             while let Some(&ch) = chars.peek() {
@@ -2518,19 +2520,19 @@ impl Editor {
                 col += 1;
             }
 
-            self.cursor.col = col;
+            self.current_window_mut().cursor.col = col;
             self.clamp_cursor();
         }
     }
 
     fn move_word_backward(&mut self) {
-        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
-            if self.cursor.col == 0 {
+        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+            if self.current_window().cursor.col == 0 {
                 return;
             }
 
             let chars: Vec<char> = line_text.chars().collect();
-            let mut col = self.cursor.col.saturating_sub(1);
+            let mut col = self.current_window().cursor.col.saturating_sub(1);
 
             // Skip whitespace
             while col > 0 && chars[col].is_whitespace() {
@@ -2547,18 +2549,18 @@ impl Editor {
                 col += 1;
             }
 
-            self.cursor.col = col;
+            self.current_window_mut().cursor.col = col;
         }
     }
 
     fn move_word_end(&mut self) {
-        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
             let chars: Vec<char> = line_text.chars().collect();
-            if chars.is_empty() || self.cursor.col >= chars.len() {
+            if chars.is_empty() || self.current_window().cursor.col >= chars.len() {
                 return;
             }
 
-            let mut col = self.cursor.col;
+            let mut col = self.current_window().cursor.col;
 
             // If on whitespace, skip to next word
             if chars[col].is_whitespace() {
@@ -2572,16 +2574,16 @@ impl Editor {
                 col += 1;
             }
 
-            self.cursor.col = col;
+            self.current_window_mut().cursor.col = col;
             self.clamp_cursor();
         }
     }
 
     fn move_word_forward_big(&mut self) {
         // WORD motion (space-separated)
-        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
-            let mut chars = line_text.chars().skip(self.cursor.col).peekable();
-            let mut col = self.cursor.col;
+        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+            let mut chars = line_text.chars().skip(self.current_window().cursor.col).peekable();
+            let mut col = self.current_window().cursor.col;
 
             // Skip current WORD (non-whitespace)
             while let Some(&ch) = chars.peek() {
@@ -2601,19 +2603,19 @@ impl Editor {
                 col += 1;
             }
 
-            self.cursor.col = col;
+            self.current_window_mut().cursor.col = col;
             self.clamp_cursor();
         }
     }
 
     fn move_word_backward_big(&mut self) {
-        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
-            if self.cursor.col == 0 {
+        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+            if self.current_window().cursor.col == 0 {
                 return;
             }
 
             let chars: Vec<char> = line_text.chars().collect();
-            let mut col = self.cursor.col.saturating_sub(1);
+            let mut col = self.current_window().cursor.col.saturating_sub(1);
 
             // Skip whitespace
             while col > 0 && chars[col].is_whitespace() {
@@ -2630,18 +2632,18 @@ impl Editor {
                 col += 1;
             }
 
-            self.cursor.col = col;
+            self.current_window_mut().cursor.col = col;
         }
     }
 
     fn move_word_end_big(&mut self) {
-        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
             let chars: Vec<char> = line_text.chars().collect();
-            if chars.is_empty() || self.cursor.col >= chars.len() {
+            if chars.is_empty() || self.current_window().cursor.col >= chars.len() {
                 return;
             }
 
-            let mut col = self.cursor.col;
+            let mut col = self.current_window().cursor.col;
 
             // If on whitespace, skip to next WORD
             if chars[col].is_whitespace() {
@@ -2655,13 +2657,13 @@ impl Editor {
                 col += 1;
             }
 
-            self.cursor.col = col;
+            self.current_window_mut().cursor.col = col;
             self.clamp_cursor();
         }
     }
 
     fn move_to_first_non_blank(&mut self) {
-        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
             let chars: Vec<char> = line_text.chars().collect();
             let mut col = 0;
 
@@ -2669,25 +2671,25 @@ impl Editor {
                 col += 1;
             }
 
-            self.cursor.col = col.min(chars.len().saturating_sub(1));
+            self.current_window_mut().cursor.col = col.min(chars.len().saturating_sub(1));
         }
     }
 
     fn move_word_end_back(&mut self) {
         // ge - move to end of previous word
-        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
             let chars: Vec<char> = line_text.chars().collect();
-            if chars.is_empty() || self.cursor.col == 0 {
+            if chars.is_empty() || self.current_window().cursor.col == 0 {
                 // Try previous line
-                if self.cursor.line > 0 {
-                    self.cursor.line -= 1;
-                    let prev_line_len = self.buffer.line_len(self.cursor.line);
-                    self.cursor.col = prev_line_len.saturating_sub(1);
+                if self.current_window().cursor.line > 0 {
+                    self.current_window_mut().cursor.line -= 1;
+                    let prev_line_len = self.current_buffer().line_len(self.current_window().cursor.line);
+                    self.current_window_mut().cursor.col = prev_line_len.saturating_sub(1);
                 }
                 return;
             }
 
-            let mut col = self.cursor.col.saturating_sub(1);
+            let mut col = self.current_window().cursor.col.saturating_sub(1);
 
             // Skip whitespace
             while col > 0 && chars[col].is_whitespace() {
@@ -2704,25 +2706,25 @@ impl Editor {
                 col += 1;
             }
 
-            self.cursor.col = col;
+            self.current_window_mut().cursor.col = col;
         }
     }
 
     fn move_word_end_back_big(&mut self) {
         // gE - move to end of previous WORD
-        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
             let chars: Vec<char> = line_text.chars().collect();
-            if chars.is_empty() || self.cursor.col == 0 {
+            if chars.is_empty() || self.current_window().cursor.col == 0 {
                 // Try previous line
-                if self.cursor.line > 0 {
-                    self.cursor.line -= 1;
-                    let prev_line_len = self.buffer.line_len(self.cursor.line);
-                    self.cursor.col = prev_line_len.saturating_sub(1);
+                if self.current_window().cursor.line > 0 {
+                    self.current_window_mut().cursor.line -= 1;
+                    let prev_line_len = self.current_buffer().line_len(self.current_window().cursor.line);
+                    self.current_window_mut().cursor.col = prev_line_len.saturating_sub(1);
                 }
                 return;
             }
 
-            let mut col = self.cursor.col.saturating_sub(1);
+            let mut col = self.current_window().cursor.col.saturating_sub(1);
 
             // Skip whitespace
             while col > 0 && chars[col].is_whitespace() {
@@ -2739,16 +2741,16 @@ impl Editor {
                 col += 1;
             }
 
-            self.cursor.col = col;
+            self.current_window_mut().cursor.col = col;
         }
     }
 
     fn move_to_line_end_non_blank(&mut self) {
         // g_ - move to last non-blank character of line
-        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
             let chars: Vec<char> = line_text.chars().collect();
             if chars.is_empty() {
-                self.cursor.col = 0;
+                self.current_window_mut().cursor.col = 0;
                 return;
             }
 
@@ -2759,19 +2761,19 @@ impl Editor {
                 col -= 1;
             }
 
-            self.cursor.col = col;
+            self.current_window_mut().cursor.col = col;
         }
     }
 
     fn move_sentence_forward(&mut self) {
         // ) - move to next sentence
         // Sentences end with . ! ? followed by space/newline
-        let line_count = self.buffer.line_count();
-        let mut line = self.cursor.line;
-        let mut col = self.cursor.col + 1;
+        let line_count = self.current_buffer().line_count();
+        let mut line = self.current_window().cursor.line;
+        let mut col = self.current_window().cursor.col + 1;
 
         while line < line_count {
-            if let Some(line_text) = self.buffer.get_line(line) {
+            if let Some(line_text) = self.current_buffer().get_line(line) {
                 let chars: Vec<char> = line_text.chars().collect();
 
                 while col < chars.len() {
@@ -2790,7 +2792,7 @@ impl Editor {
                                 col = 0;
                                 // Skip empty lines
                                 while line < line_count {
-                                    if let Some(next_line) = self.buffer.get_line(line) {
+                                    if let Some(next_line) = self.current_buffer().get_line(line) {
                                         if !next_line.trim().is_empty() {
                                             break;
                                         }
@@ -2799,8 +2801,8 @@ impl Editor {
                                 }
                             }
 
-                            self.cursor.line = line.min(line_count.saturating_sub(1));
-                            self.cursor.col = col;
+                            self.current_window_mut().cursor.line = line.min(line_count.saturating_sub(1));
+                            self.current_window_mut().cursor.col = col;
                             self.clamp_cursor();
                             return;
                         }
@@ -2813,23 +2815,23 @@ impl Editor {
         }
 
         // Reached end of buffer
-        self.cursor.line = line_count.saturating_sub(1);
-        let last_line_len = self.buffer.line_len(self.cursor.line);
-        self.cursor.col = last_line_len.saturating_sub(1);
+        self.current_window_mut().cursor.line = line_count.saturating_sub(1);
+        let last_line_len = self.current_buffer().line_len(self.current_window().cursor.line);
+        self.current_window_mut().cursor.col = last_line_len.saturating_sub(1);
         self.clamp_cursor();
     }
 
     fn move_sentence_backward(&mut self) {
         // ( - move to previous sentence
-        if self.cursor.line == 0 && self.cursor.col == 0 {
+        if self.current_window().cursor.line == 0 && self.current_window().cursor.col == 0 {
             return;
         }
 
-        let mut line = self.cursor.line;
-        let mut col = self.cursor.col.saturating_sub(1);
+        let mut line = self.current_window().cursor.line;
+        let mut col = self.current_window().cursor.col.saturating_sub(1);
 
         loop {
-            if let Some(line_text) = self.buffer.get_line(line) {
+            if let Some(line_text) = self.current_buffer().get_line(line) {
                 let chars: Vec<char> = line_text.chars().collect();
 
                 while col > 0 {
@@ -2842,8 +2844,8 @@ impl Editor {
                                 col += 1;
                             }
 
-                            self.cursor.line = line;
-                            self.cursor.col = col.min(chars.len().saturating_sub(1));
+                            self.current_window_mut().cursor.line = line;
+                            self.current_window_mut().cursor.col = col.min(chars.len().saturating_sub(1));
                             self.clamp_cursor();
                             return;
                         }
@@ -2857,19 +2859,19 @@ impl Editor {
             }
 
             line -= 1;
-            col = self.buffer.line_len(line);
+            col = self.current_buffer().line_len(line);
         }
 
         // Reached start of buffer
-        self.cursor.line = 0;
-        self.cursor.col = 0;
+        self.current_window_mut().cursor.line = 0;
+        self.current_window_mut().cursor.col = 0;
     }
 
     fn find_char(&mut self, ch: char, direction: FindDirection) {
         // Store for repeat
         self.last_find = Some((ch, direction));
 
-        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
             let chars: Vec<char> = line_text.chars().collect();
             if chars.is_empty() {
                 return;
@@ -2878,34 +2880,34 @@ impl Editor {
             match direction {
                 FindDirection::Forward => {
                     // f - find forward (inclusive)
-                    let start = self.cursor.col + 1;
+                    let start = self.current_window().cursor.col + 1;
                     for i in start..chars.len() {
                         if chars[i] == ch {
-                            self.cursor.col = i;
+                            self.current_window_mut().cursor.col = i;
                             return;
                         }
                     }
                 }
                 FindDirection::Backward => {
                     // F - find backward (inclusive)
-                    if self.cursor.col == 0 {
+                    if self.current_window().cursor.col == 0 {
                         return;
                     }
-                    let start = self.cursor.col - 1;
+                    let start = self.current_window().cursor.col - 1;
                     for i in (0..=start).rev() {
                         if chars[i] == ch {
-                            self.cursor.col = i;
+                            self.current_window_mut().cursor.col = i;
                             return;
                         }
                     }
                 }
                 FindDirection::Till => {
                     // t - till forward (stop before)
-                    let start = self.cursor.col + 1;
+                    let start = self.current_window().cursor.col + 1;
                     for i in start..chars.len() {
                         if chars[i] == ch {
                             if i > 0 {
-                                self.cursor.col = i - 1;
+                                self.current_window_mut().cursor.col = i - 1;
                             }
                             return;
                         }
@@ -2913,14 +2915,14 @@ impl Editor {
                 }
                 FindDirection::TillBack => {
                     // T - till backward (stop after)
-                    if self.cursor.col == 0 {
+                    if self.current_window().cursor.col == 0 {
                         return;
                     }
-                    let start = self.cursor.col - 1;
+                    let start = self.current_window().cursor.col - 1;
                     for i in (0..=start).rev() {
                         if chars[i] == ch {
                             if i < chars.len() - 1 {
-                                self.cursor.col = i + 1;
+                                self.current_window_mut().cursor.col = i + 1;
                             }
                             return;
                         }
@@ -2950,51 +2952,51 @@ impl Editor {
 
     fn move_to_screen_top(&mut self) {
         // H - Move cursor to top of visible screen
-        self.cursor.line = self.viewport.offset_line;
-        self.cursor.col = 0;
+        self.current_window_mut().cursor.line = self.current_window().viewport.offset_line;
+        self.current_window_mut().cursor.col = 0;
         self.clamp_cursor();
     }
 
     fn move_to_screen_middle(&mut self) {
         // M - Move cursor to middle of visible screen
-        let middle_line = self.viewport.offset_line + (self.viewport.height / 2);
-        self.cursor.line = middle_line.min(self.buffer.line_count().saturating_sub(1));
-        self.cursor.col = 0;
+        let middle_line = self.current_window().viewport.offset_line + (self.current_window().viewport.height / 2);
+        self.current_window_mut().cursor.line = middle_line.min(self.current_buffer().line_count().saturating_sub(1));
+        self.current_window_mut().cursor.col = 0;
         self.clamp_cursor();
     }
 
     fn move_to_screen_bottom(&mut self) {
         // L - Move cursor to bottom of visible screen
-        let bottom_line = self.viewport.offset_line + self.viewport.height - 1;
-        self.cursor.line = bottom_line.min(self.buffer.line_count().saturating_sub(1));
-        self.cursor.col = 0;
+        let bottom_line = self.current_window().viewport.offset_line + self.current_window().viewport.height - 1;
+        self.current_window_mut().cursor.line = bottom_line.min(self.current_buffer().line_count().saturating_sub(1));
+        self.current_window_mut().cursor.col = 0;
         self.clamp_cursor();
     }
 
     fn scroll_top_to_screen(&mut self) {
         // zt - Scroll so current line is at top of screen
-        self.viewport.offset_line = self.cursor.line;
+        self.current_window_mut().viewport.offset_line = self.current_window().cursor.line;
     }
 
     fn scroll_middle_to_screen(&mut self) {
         // zz - Scroll so current line is at middle of screen
-        let half_height = self.viewport.height / 2;
-        self.viewport.offset_line = self.cursor.line.saturating_sub(half_height);
+        let half_height = self.current_window().viewport.height / 2;
+        self.current_window_mut().viewport.offset_line = self.current_window().cursor.line.saturating_sub(half_height);
     }
 
     fn scroll_bottom_to_screen(&mut self) {
         // zb - Scroll so current line is at bottom of screen
-        let bottom_offset = self.viewport.height.saturating_sub(1);
-        self.viewport.offset_line = self.cursor.line.saturating_sub(bottom_offset);
+        let bottom_offset = self.current_window().viewport.height.saturating_sub(1);
+        self.current_window_mut().viewport.offset_line = self.current_window().cursor.line.saturating_sub(bottom_offset);
     }
 
     fn move_paragraph_forward(&mut self) {
-        let mut line = self.cursor.line + 1;
-        let line_count = self.buffer.line_count();
+        let mut line = self.current_window().cursor.line + 1;
+        let line_count = self.current_buffer().line_count();
 
         // Skip non-empty lines
         while line < line_count {
-            if let Some(text) = self.buffer.get_line(line) {
+            if let Some(text) = self.current_buffer().get_line(line) {
                 if text.trim().is_empty() {
                     break;
                 }
@@ -3004,7 +3006,7 @@ impl Editor {
 
         // Skip empty lines
         while line < line_count {
-            if let Some(text) = self.buffer.get_line(line) {
+            if let Some(text) = self.current_buffer().get_line(line) {
                 if !text.trim().is_empty() {
                     break;
                 }
@@ -3012,21 +3014,21 @@ impl Editor {
             line += 1;
         }
 
-        self.cursor.line = line.min(line_count.saturating_sub(1));
-        self.cursor.col = 0;
+        self.current_window_mut().cursor.line = line.min(line_count.saturating_sub(1));
+        self.current_window_mut().cursor.col = 0;
         self.clamp_cursor();
     }
 
     fn move_paragraph_backward(&mut self) {
-        if self.cursor.line == 0 {
+        if self.current_window().cursor.line == 0 {
             return;
         }
 
-        let mut line = self.cursor.line.saturating_sub(1);
+        let mut line = self.current_window().cursor.line.saturating_sub(1);
 
         // Skip non-empty lines
         loop {
-            if let Some(text) = self.buffer.get_line(line) {
+            if let Some(text) = self.current_buffer().get_line(line) {
                 if text.trim().is_empty() {
                     break;
                 }
@@ -3042,7 +3044,7 @@ impl Editor {
             if line == 0 {
                 break;
             }
-            if let Some(text) = self.buffer.get_line(line.saturating_sub(1)) {
+            if let Some(text) = self.current_buffer().get_line(line.saturating_sub(1)) {
                 if !text.trim().is_empty() {
                     line -= 1;
                 } else {
@@ -3053,32 +3055,32 @@ impl Editor {
             }
         }
 
-        self.cursor.line = line;
-        self.cursor.col = 0;
+        self.current_window_mut().cursor.line = line;
+        self.current_window_mut().cursor.col = 0;
         self.clamp_cursor();
     }
 
     fn move_to_matching_bracket(&mut self) {
-        if let Some(line_text) = self.buffer.get_line(self.cursor.line) {
+        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
             let chars: Vec<char> = line_text.chars().collect();
-            if self.cursor.col >= chars.len() {
+            if self.current_window().cursor.col >= chars.len() {
                 return;
             }
 
-            let current_char = chars[self.cursor.col];
+            let current_char = chars[self.current_window().cursor.col];
             let matching_brackets = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
 
             for (open, close) in &matching_brackets {
                 if current_char == *open {
                     // Search forward for closing bracket
                     let mut depth = 0;
-                    for (i, &ch) in chars.iter().enumerate().skip(self.cursor.col) {
+                    for (i, &ch) in chars.iter().enumerate().skip(self.current_window().cursor.col) {
                         if ch == *open {
                             depth += 1;
                         } else if ch == *close {
                             depth -= 1;
                             if depth == 0 {
-                                self.cursor.col = i;
+                                self.current_window_mut().cursor.col = i;
                                 return;
                             }
                         }
@@ -3086,14 +3088,14 @@ impl Editor {
                 } else if current_char == *close {
                     // Search backward for opening bracket
                     let mut depth = 0;
-                    for i in (0..=self.cursor.col).rev() {
+                    for i in (0..=self.current_window().cursor.col).rev() {
                         let ch = chars[i];
                         if ch == *close {
                             depth += 1;
                         } else if ch == *open {
                             depth -= 1;
                             if depth == 0 {
-                                self.cursor.col = i;
+                                self.current_window_mut().cursor.col = i;
                                 return;
                             }
                         }
