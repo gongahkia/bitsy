@@ -3324,7 +3324,7 @@ impl Editor {
         self.statusline.update(self.mode, &filename, cursor, modified, total_lines);
 
         let status_text = self.statusline.render(width as usize);
-        self.terminal.print_colored(&status_text, Color::Black)?;
+        self.terminal.print_with_bg(&status_text, Color::Black, Color::Grey)?;
 
         Ok(())
     }

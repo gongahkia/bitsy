@@ -22,9 +22,6 @@ impl CommandBar {
     ) -> String {
         let mut output = String::new();
 
-        let mode_str = format!(" {} ", mode.as_str());
-        output.push_str(&mode_str);
-
         let content = if mode == Mode::Command {
             format!(":{}", command_buffer)
         } else if mode == Mode::Search {
