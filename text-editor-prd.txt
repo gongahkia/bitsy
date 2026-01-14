@@ -96,7 +96,6 @@
 
 ## Phase 21: Configuration (5 tasks)
 (A) 2026-01-09 Implement config file loading (editor.toml, init.lua, or .editorrc) +config @implementation
-(A) 2026-01-09 Create runtime config modification (:set) +config @implementation
 (B) 2026-01-09 Build keymap customization system +config @implementation
 (B) 2026-01-09 Implement theme/color scheme loading +config @implementation
 (C) 2026-01-09 Create default config generation and examples +config @docs
