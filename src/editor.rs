@@ -56,6 +56,9 @@ pub struct Editor {
     search_buffer: String,
     search_pattern: Option<String>,
     search_forward: bool, // Direction of last search
+    substitute_preview_pattern: Option<String>, // Pattern to highlight during :s/ command
+    substitute_preview_range: Option<(usize, usize)>, // Line range for substitute preview (start, end)
+    visual_cmd_range: Option<(usize, usize)>, // Line range from visual mode when entering command mode
     pending_text_object: Option<TextObjectModifier>, // Waiting for text object (a or i)
     pending_register: Option<char>, // Register selected with " prefix
     waiting_for_register: bool, // True when " was just pressed
@@ -138,6 +141,9 @@ impl Editor {
             search_buffer: String::new(),
             search_pattern: None,
             search_forward: true,
+            substitute_preview_pattern: None,
+            substitute_preview_range: None,
+            visual_cmd_range: None,
             pending_text_object: None,
             pending_register: None,
             waiting_for_register: false,
@@ -495,6 +501,7 @@ impl Editor {
                 self.history_index = None;
                 self.completion_candidates.clear();
                 self.completion_index = None;
+                self.clear_substitute_preview();
             }
             KeyCode::Enter => {
                 if !self.command_buffer.is_empty() {
@@ -503,6 +510,7 @@ impl Editor {
                         self.command_history.push(self.command_buffer.clone());
                     }
                 }
+                self.clear_substitute_preview();
                 self.execute_command()?;
                 self.mode = Mode::Normal;
                 self.command_buffer.clear();
@@ -566,14 +574,17 @@ impl Editor {
                 self.command_buffer.push(c);
                 self.completion_candidates.clear();
                 self.completion_index = None;
+                self.update_substitute_preview();
             }
             KeyCode::Backspace => {
                 self.command_buffer.pop();
                 self.completion_candidates.clear();
                 self.completion_index = None;
+                self.update_substitute_preview();
                 if self.command_buffer.is_empty() {
                     self.mode = Mode::Normal;
                     self.history_index = None;
+                    self.clear_substitute_preview();
                 }
             }
             _ => {}
@@ -757,7 +768,7 @@ impl Editor {
                 self.save_undo_state();
                 let current_line = self.current_window().cursor.line;
                 let line_count = self.current_buffer().line_count();
-                
+
                 let (start_line, end_line) = if let Some(r) = range {
                     let start = r.start.saturating_sub(1); // Convert to 0-indexed
                     let end = if r.end == usize::MAX {
@@ -766,10 +777,16 @@ impl Editor {
                         r.end.saturating_sub(1).min(line_count.saturating_sub(1))
                     };
                     (start, end)
+                } else if let Some((vs, ve)) = self.visual_cmd_range {
+                    // Use visual selection range if available
+                    (vs.min(line_count.saturating_sub(1)), ve.min(line_count.saturating_sub(1)))
                 } else {
                     // No range, use current line
                     (current_line, current_line)
                 };
+
+                // Clear visual command range after use
+                self.visual_cmd_range = None;
 
                 let mut total_count = 0;
                 for line in start_line..=end_line {
@@ -2200,6 +2217,17 @@ SEARCH
                 self.selection = Some(Selection::from_cursor(cursor, Mode::VisualLine));
             }
             Action::EnterCommandMode => {
+                // Store visual selection range if entering from visual mode
+                if matches!(self.mode, Mode::Visual | Mode::VisualLine | Mode::VisualBlock) {
+                    if let Some(ref selection) = self.selection {
+                        let (start, end) = selection.range();
+                        self.visual_cmd_range = Some((start.line, end.line));
+                        // Also update the substitute preview range immediately
+                        self.substitute_preview_range = Some((start.line, end.line));
+                    }
+                } else {
+                    self.visual_cmd_range = None;
+                }
                 self.mode = Mode::Command;
                 self.command_buffer.clear();
             }
@@ -2422,7 +2450,6 @@ SEARCH
                             RegisterContent::Line(lines) => {
                                 // Paste line(s) below current line, preserving order
                                 let insert_line = self.current_window().cursor.line + 1;
-                                // Insert from last to first to avoid shifting lines
                                 for (i, line) in lines.iter().enumerate() {
                                     let target_line = insert_line + i;
                                     // Insert newline to create space
@@ -2431,12 +2458,12 @@ SEARCH
                                         let prev_line_len = self.current_buffer().line_len(prev_line);
                                         self.current_buffer_mut().insert_newline(prev_line, prev_line_len);
                                     }
-                                    // Insert the line content
-                                    for ch in line.chars() {
-                                        self.current_buffer_mut().insert_char(target_line, 0, ch);
+                                    // Insert the line content at incrementing positions
+                                    for (idx, ch) in line.chars().enumerate() {
+                                        self.current_buffer_mut().insert_char(target_line, idx, ch);
                                     }
                                 }
-                                self.current_window_mut().cursor.line = insert_line + lines.len() - 1;
+                                self.current_window_mut().cursor.line = insert_line;
                                 self.current_window_mut().cursor.col = 0;
                             }
                             _ => {}
@@ -2475,19 +2502,24 @@ SEARCH
                             }
                             RegisterContent::Line(lines) => {
                                 // Paste line(s) above current line
+                                let insert_line = self.current_window().cursor.line;
                                 for (i, line) in lines.iter().enumerate() {
-                                    let target_line = self.current_window().cursor.line + i;
+                                    let target_line = insert_line + i;
                                     // Insert newline to create space
                                     if target_line > 0 {
                                         let prev_line = target_line.saturating_sub(1);
                                         let prev_line_len = self.current_buffer().line_len(prev_line);
                                         self.current_buffer_mut().insert_newline(prev_line, prev_line_len);
+                                    } else {
+                                        // Special case: inserting before line 0
+                                        self.current_buffer_mut().insert_newline(0, 0);
                                     }
-                                    // Insert the line content
-                                    for ch in line.chars() {
-                                        self.current_buffer_mut().insert_char(target_line, 0, ch);
+                                    // Insert the line content at incrementing positions
+                                    for (idx, ch) in line.chars().enumerate() {
+                                        self.current_buffer_mut().insert_char(target_line, idx, ch);
                                     }
                                 }
+                                self.current_window_mut().cursor.line = insert_line;
                                 self.current_window_mut().cursor.col = 0;
                             }
                             _ => {}
@@ -3364,8 +3396,38 @@ SEARCH
     fn render_line_content(&mut self, line: usize, line_text: &str, start_col: usize, available_width: usize) -> Result<()> {
         let chars: Vec<char> = line_text.chars().collect();
 
-        // If no selection or not in visual mode, render normally
-        if self.selection.is_none() || !matches!(self.mode, Mode::Visual | Mode::VisualLine | Mode::VisualBlock) {
+        // Build a set of search match positions for this line
+        let search_matches: Vec<(usize, usize)> = if self.config.highlight_search {
+            if let Some(ref pattern) = self.search_pattern {
+                self.find_all_matches_in_line(line_text, pattern)
+            } else {
+                Vec::new()
+            }
+        } else {
+            Vec::new()
+        };
+
+        // Build substitute preview matches for this line
+        let substitute_matches: Vec<(usize, usize)> = if let Some(ref pattern) = self.substitute_preview_pattern {
+            if let Some((start_line, end_line)) = self.substitute_preview_range {
+                if line >= start_line && line <= end_line {
+                    self.find_all_matches_in_line(line_text, pattern)
+                } else {
+                    Vec::new()
+                }
+            } else {
+                Vec::new()
+            }
+        } else {
+            Vec::new()
+        };
+
+        // Check if we're in visual mode with selection
+        let in_visual_mode = matches!(self.mode, Mode::Visual | Mode::VisualLine | Mode::VisualBlock);
+        let selection_ref = if in_visual_mode { self.selection.as_ref() } else { None };
+
+        // If no highlighting needed at all, render normally for efficiency
+        if selection_ref.is_none() && search_matches.is_empty() && substitute_matches.is_empty() {
             let visible_text: String = chars[start_col.min(chars.len())..]
                 .iter()
                 .take(available_width)
@@ -3374,20 +3436,51 @@ SEARCH
             return Ok(());
         }
 
-        // Render with selection highlighting
-        if let Some(ref selection) = self.selection {
-            for (col_idx, &ch) in chars.iter().enumerate().skip(start_col).take(available_width) {
-                if selection.contains(line, col_idx) {
-                    // Character is selected - render with highlight
-                    self.terminal.print_with_bg(&ch.to_string(), Color::White, Color::Blue)?;
-                } else {
-                    // Character is not selected - render normally
-                    self.terminal.print(&ch.to_string())?;
-                }
+        // Render with highlighting (selection, search, and/or substitute preview)
+        for (col_idx, &ch) in chars.iter().enumerate().skip(start_col).take(available_width) {
+            let is_selected = selection_ref.map_or(false, |s| s.contains(line, col_idx));
+            let is_substitute_match = substitute_matches.iter().any(|(start, end)| col_idx >= *start && col_idx < *end);
+            let is_search_match = search_matches.iter().any(|(start, end)| col_idx >= *start && col_idx < *end);
+
+            if is_selected {
+                // Visual selection takes priority - blue background
+                self.terminal.print_with_bg(&ch.to_string(), Color::White, Color::Blue)?;
+            } else if is_substitute_match {
+                // Substitute preview match - magenta/red background
+                self.terminal.print_with_bg(&ch.to_string(), Color::White, Color::Magenta)?;
+            } else if is_search_match {
+                // Search match - yellow background
+                self.terminal.print_with_bg(&ch.to_string(), Color::Black, Color::Yellow)?;
+            } else {
+                // Normal rendering
+                self.terminal.print(&ch.to_string())?;
             }
         }
 
         Ok(())
+    }
+
+    /// Find all matches of a pattern in a line, returning (start_col, end_col) pairs
+    fn find_all_matches_in_line(&self, line_text: &str, pattern: &str) -> Vec<(usize, usize)> {
+        let mut matches = Vec::new();
+        if pattern.is_empty() {
+            return matches;
+        }
+
+        let chars: Vec<char> = line_text.chars().collect();
+        let pattern_chars: Vec<char> = pattern.chars().collect();
+
+        let mut i = 0;
+        while i + pattern_chars.len() <= chars.len() {
+            let slice: String = chars[i..i + pattern_chars.len()].iter().collect();
+            if slice == pattern {
+                matches.push((i, i + pattern_chars.len()));
+                i += pattern_chars.len(); // Move past this match
+            } else {
+                i += 1;
+            }
+        }
+        matches
     }
 
     fn render_line_number(&mut self, line: usize, width: usize) -> Result<()> {
@@ -3465,5 +3558,81 @@ SEARCH
         self.terminal.print_with_bg(&command_bar_text, Color::White, Color::DarkGrey)?;
 
         Ok(())
+    }
+
+    /// Update substitute preview pattern based on current command buffer
+    fn update_substitute_preview(&mut self) {
+        self.substitute_preview_pattern = None;
+        self.substitute_preview_range = None;
+
+        if self.mode != Mode::Command || self.command_buffer.is_empty() {
+            return;
+        }
+
+        let cmd = &self.command_buffer;
+
+        // Parse range and substitute command
+        // Formats: %s/pattern/, 1,10s/pattern/, s/pattern/
+        let (range, rest) = if cmd.starts_with('%') {
+            // % means all lines
+            let line_count = self.current_buffer().line_count();
+            (Some((0, line_count.saturating_sub(1))), &cmd[1..])
+        } else if let Some(comma_pos) = cmd.find(',') {
+            // Try to parse line,line format
+            let before_comma = &cmd[..comma_pos];
+            let after_comma = &cmd[comma_pos + 1..];
+
+            if let Some(cmd_start) = after_comma.find(|c: char| !c.is_ascii_digit()) {
+                let end_str = &after_comma[..cmd_start];
+                if let (Ok(start), Ok(end)) = (before_comma.parse::<usize>(), end_str.parse::<usize>()) {
+                    (Some((start.saturating_sub(1), end.saturating_sub(1))), &after_comma[cmd_start..])
+                } else {
+                    (None, cmd.as_str())
+                }
+            } else {
+                (None, cmd.as_str())
+            }
+        } else if let Some(first_non_digit) = cmd.find(|c: char| !c.is_ascii_digit()) {
+            // Single line number prefix
+            let line_str = &cmd[..first_non_digit];
+            if let Ok(line) = line_str.parse::<usize>() {
+                (Some((line.saturating_sub(1), line.saturating_sub(1))), &cmd[first_non_digit..])
+            } else {
+                (None, cmd.as_str())
+            }
+        } else {
+            (None, cmd.as_str())
+        };
+
+        // Check if this is a substitute command
+        if rest.starts_with("s/") {
+            let pattern_start = 2;
+            if let Some(pattern_end) = rest[pattern_start..].find('/') {
+                let pattern = &rest[pattern_start..pattern_start + pattern_end];
+                if !pattern.is_empty() {
+                    self.substitute_preview_pattern = Some(pattern.to_string());
+                    self.substitute_preview_range = range.or(Some((
+                        self.current_window().cursor.line,
+                        self.current_window().cursor.line
+                    )));
+                }
+            } else if rest.len() > 2 {
+                // Pattern still being typed (no closing /)
+                let pattern = &rest[pattern_start..];
+                if !pattern.is_empty() {
+                    self.substitute_preview_pattern = Some(pattern.to_string());
+                    self.substitute_preview_range = range.or(Some((
+                        self.current_window().cursor.line,
+                        self.current_window().cursor.line
+                    )));
+                }
+            }
+        }
+    }
+
+    /// Clear substitute preview state
+    fn clear_substitute_preview(&mut self) {
+        self.substitute_preview_pattern = None;
+        self.substitute_preview_range = None;
     }
 }
