@@ -1511,12 +1511,24 @@ impl Editor {
                 self.current_buffer_mut().delete_range(start_line, start_col, end_line, end_col);
             }
             PendingOperator::Yank => {
-                // Get the text being yanked
-                let yanked_text = self.get_range_text(start_line, start_col, end_line, end_col);
-                let char_count = yanked_text.len();
-                self.registers.set_yank(None, RegisterContent::Char(yanked_text));
-                self.message = Some(format!("Yanked {} characters", char_count));
-                
+                // Detect if this is a linewise yank (visual line mode or full lines)
+                if start_col == 0 && end_col == usize::MAX {
+                    // Linewise yank
+                    let mut lines = Vec::new();
+                    for line_idx in start_line..=end_line {
+                        if let Some(line_text) = self.current_buffer().get_line(line_idx) {
+                            lines.push(line_text);
+                        }
+                    }
+                    self.registers.set_yank(None, RegisterContent::Line(lines.clone()));
+                    self.message = Some(format!("{} line{} yanked", lines.len(), if lines.len() == 1 { "" } else { "s" }));
+                } else {
+                    // Character-wise yank
+                    let yanked_text = self.get_range_text(start_line, start_col, end_line, end_col);
+                    let char_count = yanked_text.len();
+                    self.registers.set_yank(None, RegisterContent::Char(yanked_text));
+                    self.message = Some(format!("Yanked {} characters", char_count));
+                }
                 // Set change marks
                 self.current_buffer_mut().set_mark('[', (start_line, start_col));
                 self.current_buffer_mut().set_mark(']', (end_line, end_col));
@@ -2256,7 +2268,25 @@ impl Editor {
                 self.mode = Mode::Insert;
             }
             Action::Yank => {
-                self.pending_operator = PendingOperator::Yank;
+                if matches!(self.mode, Mode::VisualLine) {
+                    // Mirror delete logic: copy lines to register, do not delete
+                    if let Some(selection) = self.selection.clone() {
+                        let (start, end) = selection.range();
+                        let mut lines = Vec::new();
+                        for line_idx in start.line..=end.line {
+                            if let Some(line_text) = self.current_buffer().get_line(line_idx) {
+                                lines.push(line_text);
+                            }
+                        }
+                        self.registers.set_yank(None, crate::register::RegisterContent::Line(lines.clone()));
+                        self.message = Some(format!("{} line{} yanked", lines.len(), if lines.len() == 1 { "" } else { "s" }));
+                        // Do not delete, just exit visual mode
+                        self.mode = Mode::Normal;
+                        self.selection = None;
+                    }
+                } else {
+                    self.pending_operator = PendingOperator::Yank;
+                }
             }
             Action::YankLine => {
                 // Yank entire line
