@@ -4,7 +4,14 @@
 # Max Implementation: 150 tasks
 
 ## Phase 0
+(C) 2026-01-12 Write tests for vertical motions (:line, %) +testing @implementation
+(C) 2026-01-12 Write tests for search motions (/, ?, n, N, *, #) +testing @implementation
+(C) 2026-01-12 Write tests for text object motions (aw, iw, ap, ip, etc) +testing @implementation  
+(C) 2026-01-12 Write tests for :substitute command +testing @implementation
+(C) 2026-01-12 Write tests for :set command +testing @implementation
+(C) 2026-01-12 Write tests for register selection syntax +testing @implementation
 
+## Phase 1
 (A) debug issue of yanking/deleting one/multiple lines and pasting those lines (from buffer) being pasted in reverse
 (A) add highlighting of all selections during %:s/
 (A) add highlighting for matches found with /
@@ -12,22 +19,6 @@
 (A) Now have it such that after opening a file, it immediately launches a localhost markdown preview in a browser and make it split screen if possible
 (A) Add Goyo and Lightline functionality (zen mode, highlighting) out of the box with sensible keybinds
 
-## Phase 11: Splits & Windows (7 tasks remaining)
-(A) 2026-01-09 Implement horizontal split (:split, Ctrl-w s) +windows @implementation
-(A) 2026-01-09 Implement vertical split (:vsplit, Ctrl-w v) +windows @implementation
-(A) 2026-01-09 Create window navigation (Ctrl-w h/j/k/l, Ctrl-w w) +windows @implementation
-(B) 2026-01-09 Build window resizing (Ctrl-w +/-/</>/, =) +windows @implementation
-(B) 2026-01-09 Implement window closing (Ctrl-w c, Ctrl-w q, :close) +windows @implementation
-(C) 2026-01-09 Create window rotation and layout commands (Ctrl-w r, Ctrl-w H/J/K/L) +windows @implementation
-(C) 2026-01-09 Build window-specific rendering and buffer management +windows @implementation
-## Phase 11: Splits & Windows (7 tasks remaining)
-(A) 2026-01-09 Implement horizontal split (:split, Ctrl-w s) +windows @implementation
-(A) 2026-01-09 Implement vertical split (:vsplit, Ctrl-w v) +windows @implementation
-(A) 2026-01-09 Create window navigation (Ctrl-w h/j/k/l, Ctrl-w w) +windows @implementation
-(B) 2026-01-09 Build window resizing (Ctrl-w +/-/</>/, =) +windows @implementation
-(B) 2026-01-09 Implement window closing (Ctrl-w c, Ctrl-w q, :close) +windows @implementation
-(C) 2026-01-09 Create window rotation and layout commands (Ctrl-w r, Ctrl-w H/J/K/L) +windows @implementation
-(C) 2026-01-09 Build window-specific rendering and buffer management +windows @implementation
 ## Phase 13: File Operations (7 tasks)
 (A) 2026-01-09 Implement file reading with encoding detection +files @implementation
 (A) 2026-01-09 Create file writing with encoding preservation +files @implementation
@@ -76,10 +67,8 @@
 (B) 2026-01-09 Build buffer fuzzy finder (:Buffers) +fuzzy @implementation
 (B) 2026-01-09 Implement grep/text search in files (:Rg, :Grep) +fuzzy @implementation
 (C) 2026-01-09 Create fuzzy finder preview pane +fuzzy @implementation
-(C) 2026-01-09 Build fuzzy finder with git integration (git files, git status) +fuzzy @implementation
 
 ## Phase 21: Configuration (5 tasks)
-(B) 2026-01-09 Build keymap customization system +config @implementation
 (B) 2026-01-09 Implement theme/color scheme loading +config @implementation
 (C) 2026-01-09 Create default config generation and examples +config @docs
 
@@ -107,13 +96,4 @@
 (B) 2026-01-09 Write unit tests for vim motions and operators +testing @implementation
 (B) 2026-01-09 Write integration tests for command mode +testing @implementation
 (B) 2026-01-09 Create end-to-end tests for common workflows +testing @implementation
-(C) 2026-01-09 Create vim compatibility documentation +docs @writing
 (C) 2026-01-09 Create architecture markdown file with mermaid diagram +docs @writing
-
-## Final things
-(C) 2026-01-12 Write tests for vertical motions (:line, %) +testing @implementation
-(C) 2026-01-12 Write tests for search motions (/, ?, n, N, *, #) +testing @implementation
-(C) 2026-01-12 Write tests for text object motions (aw, iw, ap, ip, etc) +testing @implementation  
-(C) 2026-01-12 Write tests for :substitute command +testing @implementation
-(C) 2026-01-12 Write tests for :set command +testing @implementation
-(C) 2026-01-12 Write tests for register selection syntax +testing @implementation
