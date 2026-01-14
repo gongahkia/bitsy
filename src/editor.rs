@@ -36,6 +36,7 @@ enum PendingOperator {
 pub struct Editor {
     terminal: Terminal,
     buffers: Vec<Buffer>,
+    undo_history: Vec<Buffer>,
     mode: Mode,
     statusline: StatusLine,
     command_buffer: String,
@@ -116,6 +117,7 @@ impl Editor {
         Ok(Self {
             terminal,
             buffers: vec![Buffer::new()],
+            undo_history: Vec::new(),
             mode: Mode::Normal,
             statusline: StatusLine::new(),
             command_buffer: String::new(),
@@ -716,6 +718,7 @@ impl Editor {
                 self.clamp_cursor();
             }
             Command::Substitute { pattern, replacement, global, range } => {
+                self.save_undo_state();
                 let current_line = self.current_window().cursor.line;
                 let line_count = self.current_buffer().line_count();
                 
@@ -750,6 +753,7 @@ impl Editor {
                 }
             }
             Command::Delete { range } => {
+                self.save_undo_state();
                 if let Some(r) = range {
                     let line_count = self.current_buffer().line_count();
                     let start = r.start.saturating_sub(1).min(line_count.saturating_sub(1));
@@ -1297,6 +1301,9 @@ impl Editor {
 
         if let Some(op) = doubled {
             // Operator was doubled, apply to whole line(s) with count
+            if op != "yank_line" {
+                self.save_undo_state();
+            }
             let count = if self.count == 0 { 1 } else { self.count };
             match op {
                 "delete_line" => {
@@ -1459,6 +1466,7 @@ impl Editor {
     }
 
     fn apply_operator_to_range(&mut self, start_line: usize, start_col: usize, end_line: usize, end_col: usize) -> Result<()> {
+        self.save_undo_state();
         // Normalize range (ensure start comes before end)
         let (start_line, start_col, end_line, end_col) = if start_line > end_line || (start_line == end_line && start_col > end_col) {
             (end_line, end_col, start_line, start_col)
@@ -1742,6 +1750,21 @@ impl Editor {
         if self.jump_list.is_empty() || self.jump_list.last() != Some(&pos) {
             self.jump_list.push(pos);
             self.jump_index = self.jump_list.len().saturating_sub(1);
+        }
+    }
+
+    fn save_undo_state(&mut self) {
+        let buffer_clone = self.current_buffer().clone();
+        self.undo_history.push(buffer_clone);
+    }
+
+    fn undo(&mut self) {
+        if let Some(previous_buffer) = self.undo_history.pop() {
+            let buffer_idx = self.current_window().buffer_index;
+            self.buffers[buffer_idx] = previous_buffer;
+            self.message = Some("Undone".to_string());
+        } else {
+            self.message = Some("Already at oldest change".to_string());
         }
     }
 
@@ -2052,6 +2075,7 @@ impl Editor {
             // Editing
             Action::InsertChar(c) => {
                 if self.mode == Mode::Insert {
+                    self.save_undo_state();
                     let line = self.current_window().cursor.line;
                     let col = self.current_window().cursor.col;
                     self.current_buffer_mut().insert_char(line, col, c);
@@ -2060,6 +2084,7 @@ impl Editor {
             }
             Action::InsertNewline => {
                 if self.mode == Mode::Insert || self.mode == Mode::Replace {
+                    self.save_undo_state();
                     let line = self.current_window().cursor.line;
                     let col = self.current_window().cursor.col;
                     self.current_buffer_mut().insert_newline(line, col);
@@ -2069,6 +2094,7 @@ impl Editor {
             }
             Action::DeleteChar => {
                 if self.mode == Mode::Insert || self.mode == Mode::Replace {
+                    self.save_undo_state();
                     // Backspace in insert/replace mode
                     if self.current_window().cursor.col > 0 {
                         self.current_window_mut().cursor.move_left(1);
@@ -2077,6 +2103,7 @@ impl Editor {
                         self.current_buffer_mut().delete_char(line, col);
                     }
                 } else if self.mode == Mode::Normal {
+                    self.save_undo_state();
                     // x in normal mode - record for dot repeat
                     self.record_change(action.clone());
                     let line = self.current_window().cursor.line;
@@ -2086,6 +2113,7 @@ impl Editor {
                 }
             }
             Action::Replace(ch) => {
+                self.save_undo_state();
                 let line = self.current_window().cursor.line;
                 let col = self.current_window().cursor.col;
 
@@ -2110,12 +2138,17 @@ impl Editor {
                 }
             }
 
+            Action::Undo => {
+                self.undo();
+            }
+
             // Operators
             Action::Delete => {
                 // Set pending operator
                 self.pending_operator = PendingOperator::Delete;
             }
             Action::DeleteToEnd => {
+                self.save_undo_state();
                 // Delete from cursor to end of line
                 let line = self.current_window().cursor.line;
                 let start_col = self.current_window().cursor.col;
@@ -2132,6 +2165,7 @@ impl Editor {
                 self.pending_operator = PendingOperator::Change;
             }
             Action::ChangeToEnd => {
+                self.save_undo_state();
                 // Change from cursor to end of line
                 let line = self.current_window().cursor.line;
                 let start_col = self.current_window().cursor.col;
@@ -2168,6 +2202,7 @@ impl Editor {
                 }
             }
             Action::Paste => {
+                self.save_undo_state();
                 let start_pos = (self.current_window().cursor.line, self.current_window().cursor.col);
                 
                 // Paste after cursor (repeat count times)
@@ -2220,6 +2255,7 @@ impl Editor {
                 self.current_buffer_mut().set_mark(']', end_pos);
             }
             Action::PasteBefore => {
+                self.save_undo_state();
                 let start_pos = (self.current_window().cursor.line, self.current_window().cursor.col);
                 
                 // Paste before cursor (repeat count times)
@@ -2270,6 +2306,7 @@ impl Editor {
                 self.current_buffer_mut().set_mark(']', end_pos);
             }
             Action::Join => {
+                self.save_undo_state();
                 // Join current line with next line
                 let current_line = self.current_window().cursor.line;
                 if current_line < self.current_buffer().line_count() - 1 {
@@ -2285,6 +2322,7 @@ impl Editor {
                 }
             }
             Action::JoinNoSpace => {
+                self.save_undo_state();
                 // gJ - Join current line with next line without space
                 let current_line = self.current_window().cursor.line;
                 if current_line < self.current_buffer().line_count() - 1 {

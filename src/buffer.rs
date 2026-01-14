@@ -47,7 +47,7 @@ impl Default for LineEnding {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Buffer {
     rope: Rope,
     file_path: Option<PathBuf>,
