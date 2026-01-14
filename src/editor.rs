@@ -3607,24 +3607,24 @@ SEARCH
         // Check if this is a substitute command
         if rest.starts_with("s/") {
             let pattern_start = 2;
+            // Determine the default range: visual selection > current line
+            let default_range = self.visual_cmd_range.unwrap_or((
+                self.current_window().cursor.line,
+                self.current_window().cursor.line
+            ));
+
             if let Some(pattern_end) = rest[pattern_start..].find('/') {
                 let pattern = &rest[pattern_start..pattern_start + pattern_end];
                 if !pattern.is_empty() {
                     self.substitute_preview_pattern = Some(pattern.to_string());
-                    self.substitute_preview_range = range.or(Some((
-                        self.current_window().cursor.line,
-                        self.current_window().cursor.line
-                    )));
+                    self.substitute_preview_range = range.or(Some(default_range));
                 }
             } else if rest.len() > 2 {
                 // Pattern still being typed (no closing /)
                 let pattern = &rest[pattern_start..];
                 if !pattern.is_empty() {
                     self.substitute_preview_pattern = Some(pattern.to_string());
-                    self.substitute_preview_range = range.or(Some((
-                        self.current_window().cursor.line,
-                        self.current_window().cursor.line
-                    )));
+                    self.substitute_preview_range = range.or(Some(default_range));
                 }
             }
         }
@@ -3634,5 +3634,6 @@ SEARCH
     fn clear_substitute_preview(&mut self) {
         self.substitute_preview_pattern = None;
         self.substitute_preview_range = None;
+        self.visual_cmd_range = None;
     }
 }
