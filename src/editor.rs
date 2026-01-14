@@ -111,6 +111,8 @@ impl Editor {
         
         let window = Window::new(0, width as usize, viewport_height);
 
+        let config = Config::load_from_file("editor.toml");
+
         Ok(Self {
             terminal,
             buffers: vec![Buffer::new()],
@@ -121,7 +123,7 @@ impl Editor {
             should_quit: false,
             registers: RegisterManager::new(),
             pending_operator: PendingOperator::None,
-            config: Config::default(),
+            config,
             selection: None,
             last_find: None,
             pending_key: None,

@@ -1,6 +1,9 @@
 // Editor configuration
+use serde::Deserialize;
+use std::fs;
+use toml;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 pub enum LineNumberMode {
     None,
     Absolute,
@@ -8,7 +11,7 @@ pub enum LineNumberMode {
     RelativeAbsolute, // Hybrid: relative numbers with absolute for current line
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub line_numbers: LineNumberMode,
     pub show_current_line: bool,
@@ -31,6 +34,22 @@ impl Config {
             highlight_search: true,
             ignore_case: false,
             smart_case: true,
+        }
+    }
+
+    pub fn load_from_file(path: &str) -> Self {
+        let default_config = Self::new();
+        match fs::read_to_string(path) {
+            Ok(content) => {
+                match toml::from_str(&content) {
+                    Ok(config) => config,
+                    Err(e) => {
+                        log::warn!("Failed to parse config file: {}", e);
+                        default_config
+                    }
+                }
+            }
+            Err(_) => default_config,
         }
     }
 
