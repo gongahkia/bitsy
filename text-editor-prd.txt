@@ -20,8 +20,6 @@
 (C) 2026-01-09 Build undo tree visualizer (:undolist) +undo @implementation
 
 ## Phase 15: Search & Replace (8 tasks)
-(A) 2026-01-09 Implement forward search (/, n, *) +search @implementation
-(A) 2026-01-09 Create backward search (?, N, #) +search @implementation
 (A) 2026-01-09 Build regex engine integration (Rust: regex crate) +search @implementation
 (A) 2026-01-09 Implement search highlighting +search @implementation
 (B) 2026-01-09 Create incremental search (search as you type) +search @implementation
