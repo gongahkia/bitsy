@@ -4,6 +4,12 @@ use std::io;
 use std::process;
 use is_terminal::IsTerminal;
 
+mod viewport;
+mod window;
+
+use editor::Editor;
+use env_logger::Env;
+use std::env;
 fn main() {
     if !io::stdout().is_terminal() {
         eprintln!("Error: This application must be run in a terminal.");

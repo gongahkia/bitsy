@@ -19,6 +19,7 @@ use crate::selection::Selection;
 use crate::statusline::StatusLine;
 use crate::terminal::Terminal;
 use crate::window::Window;
+use crate::markdown;
 
 #[derive(Debug, Clone, PartialEq)]
 enum PendingOperator {
@@ -74,6 +75,7 @@ pub struct Editor {
     last_macro_register: Option<char>,
     windows: Vec<Window>,
     active_window: usize,
+    zen_mode: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -156,6 +158,7 @@ impl Editor {
             last_macro_register: None,
             windows: vec![window],
             active_window: 0,
+            zen_mode: false,
         })
     }
 
@@ -176,11 +179,22 @@ impl Editor {
         &mut self.windows[self.active_window]
     }
 
+    fn toggle_zen_mode(&mut self) {
+        self.zen_mode = !self.zen_mode;
+        self.message = if self.zen_mode {
+            Some("Zen mode enabled".to_string())
+        } else {
+            Some("Zen mode disabled".to_string())
+        };
+    }
+
     pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         let buffer = Buffer::from_file(&path)?;
         self.buffers[0] = buffer;
         self.windows[0].cursor = Cursor::default();
-        self.registers.update_filename(path.as_ref().to_string_lossy().to_string());
+        let path_str = path.as_ref().to_string_lossy().to_string();
+        self.registers.update_filename(path_str.clone());
+        markdown::open_preview_if_markdown(&path_str);
         Ok(())
     }
 
@@ -679,10 +693,11 @@ impl Editor {
         match cmd {
             Command::Write(path) => {
                 if let Some(p) = path {
-                    if let Err(e) = self.current_buffer_mut().save_as(p) {
+                    if let Err(e) = self.current_buffer_mut().save_as(p.clone()) {
                         self.message = Some(format!("Error: {}", e));
                     } else {
                         self.message = Some("File written".to_string());
+                        markdown::update_preview(&p);
                     }
                 } else {
                     if self.current_buffer().file_path().is_some() {
@@ -690,6 +705,9 @@ impl Editor {
                             self.message = Some(format!("Error: {}", e));
                         } else {
                             self.message = Some("File written".to_string());
+                            if let Some(p) = self.current_buffer().file_path() {
+                                markdown::update_preview(p);
+                            }
                         }
                     } else {
                         self.message = Some("No file name. Use :w <filename>".to_string());
@@ -709,10 +727,20 @@ impl Editor {
             }
             Command::WriteQuit(path) => {
                 let save_result = if let Some(p) = path {
-                    self.current_buffer_mut().save_as(p)
+                    let res = self.current_buffer_mut().save_as(p.clone());
+                    if res.is_ok() {
+                        markdown::update_preview(&p);
+                    }
+                    res
                 } else {
                     if self.current_buffer().file_path().is_some() {
-                        self.current_buffer_mut().save()
+                        let res = self.current_buffer_mut().save();
+                        if res.is_ok() {
+                            if let Some(p) = self.current_buffer().file_path() {
+                                markdown::update_preview(p);
+                            }
+                        }
+                        res
                     } else {
                         self.message = Some("No file name. Use :w <filename>".to_string());
                         return Ok(());
@@ -2002,6 +2030,10 @@ impl Editor {
                 let bottom_offset = height.saturating_sub(1);
                 self.current_window_mut().viewport.offset_line = line.saturating_sub(bottom_offset);
             }
+            Action::ToggleZenMode => {
+                self.toggle_zen_mode();
+            }
+
             Action::MoveParagraphForward => {
                 let count = if self.count == 0 { 1 } else { self.count };
                 for _ in 0..count {
@@ -3184,25 +3216,56 @@ impl Editor {
     }
 
     fn render(&mut self) -> Result<()> {
-        self.terminal.clear_screen()?;
+        self.terminal.clear()?;
+        self.terminal.hide_cursor()?;
 
-        // Render buffer content
-        self.render_buffer()?;
+        let (width, height) = self.terminal.size();
+        let window = self.current_window_mut();
 
-        // Render status line
-        self.render_status_line()?;
+        if self.zen_mode {
+            // Zen mode: centered text, no status/command bar
+            let content_width = (width as usize).saturating_sub(20);
+            window.viewport.resize(content_width, height as usize);
+            window.viewport.offset_col = 10;
+            window.render(&mut self.terminal, self.current_buffer(), &self.config, self.mode)?;
+        } else {
+            // Normal mode
+            let viewport_height = (height as usize).saturating_sub(2);
+            window.viewport.resize(width as usize, viewport_height);
+            window.viewport.offset_col = 0;
+            window.render(&mut self.terminal, self.current_buffer(), &self.config, self.mode)?;
 
-        // Render command line or message
-        self.render_command_line()?;
+            self.statusline.render(
+                &mut self.terminal,
+                self.mode,
+                self.current_buffer(),
+                &self.current_window().cursor,
+                self.pending_operator != PendingOperator::None,
+                self.recording_register,
+            )?;
 
-        // Position cursor (account for line number gutter)
-        let line_num_width = self.config.line_number_width(self.current_buffer().line_count());
-        let screen_row = self.current_window().cursor.line.saturating_sub(self.current_window().viewport.offset_line);
-        let screen_col = self.current_window().cursor.col.saturating_sub(self.current_window().viewport.offset_col) + line_num_width;
-        self.terminal.move_cursor(screen_col as u16, screen_row as u16)?;
+            self.command_bar.render(
+                &mut self.terminal,
+                &self.command_buffer,
+                &self.message,
+                self.mode == Mode::Command,
+                self.mode == Mode::Search,
+                &self.search_buffer,
+                self.search_forward,
+            )?;
+        }
+
+        // Position cursor
+        let cursor_x = (window.cursor.col - window.viewport.offset_col)
+            + if self.config.line_numbers != LineNumberMode::None { 5 } else { 0 };
+        let cursor_y = window.cursor.line - window.viewport.offset_line;
+        self.terminal.set_cursor(cursor_x as u16, cursor_y as u16)?;
 
         self.terminal.show_cursor()?;
         self.terminal.flush()?;
+
+        // Clear message after rendering
+        self.message = None;
 
         Ok(())
     }
