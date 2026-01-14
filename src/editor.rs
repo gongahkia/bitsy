@@ -17,7 +17,7 @@ use crate::register::{RegisterContent, RegisterManager};
 use crate::selection::Selection;
 use crate::statusline::StatusLine;
 use crate::terminal::Terminal;
-use crate::window::{Window, Layout};
+use crate::window::Window;
 
 #[derive(Debug, Clone, PartialEq)]
 enum PendingOperator {
@@ -71,7 +71,6 @@ pub struct Editor {
     macro_buffer: Vec<KeyEvent>,
     last_macro_register: Option<char>,
     windows: Vec<Window>,
-    layout: Layout,
     active_window: usize,
 }
 
@@ -153,7 +152,6 @@ impl Editor {
             macro_buffer: Vec::new(),
             last_macro_register: None,
             windows: vec![window],
-            layout: Layout::new_leaf(0),
             active_window: 0,
         })
     }
@@ -1050,16 +1048,7 @@ impl Editor {
         }
     }
 
-    fn execute_substitute_all(&mut self, pattern: &str, replacement: &str, global: bool) -> usize {
-        let line_count = self.current_buffer().line_count();
-        let mut total_count = 0;
 
-        for line in 0..line_count {
-            total_count += self.execute_substitute_line(line, pattern, replacement, global);
-        }
-
-        total_count
-    }
 
     fn apply_text_object_word(&mut self, modifier: TextObjectModifier) -> Result<()> {
         // Find word boundaries around cursor
@@ -2118,6 +2107,17 @@ impl Editor {
                         let line = self.current_window().cursor.line;
                         let col = self.current_window().cursor.col;
                         self.current_buffer_mut().delete_char(line, col);
+                    } else if self.current_window().cursor.line > 0 {
+                        // At the beginning of a line, join with the previous line
+                        let prev_line_len = self.current_buffer().line_len(self.current_window().cursor.line - 1);
+                        let current_line = self.current_window().cursor.line;
+                        
+                        // Delete the newline character
+                        self.current_buffer_mut().delete_range(current_line - 1, prev_line_len, current_line, 0);
+                        
+                        // Move cursor to the end of the previous line
+                        self.current_window_mut().cursor.line -= 1;
+                        self.current_window_mut().cursor.col = prev_line_len;
                     }
                 } else if self.mode == Mode::Normal {
                     self.save_undo_state();
@@ -3010,45 +3010,7 @@ impl Editor {
         }
     }
 
-    fn move_to_screen_top(&mut self) {
-        // H - Move cursor to top of visible screen
-        self.current_window_mut().cursor.line = self.current_window().viewport.offset_line;
-        self.current_window_mut().cursor.col = 0;
-        self.clamp_cursor();
-    }
 
-    fn move_to_screen_middle(&mut self) {
-        // M - Move cursor to middle of visible screen
-        let middle_line = self.current_window().viewport.offset_line + (self.current_window().viewport.height / 2);
-        self.current_window_mut().cursor.line = middle_line.min(self.current_buffer().line_count().saturating_sub(1));
-        self.current_window_mut().cursor.col = 0;
-        self.clamp_cursor();
-    }
-
-    fn move_to_screen_bottom(&mut self) {
-        // L - Move cursor to bottom of visible screen
-        let bottom_line = self.current_window().viewport.offset_line + self.current_window().viewport.height - 1;
-        self.current_window_mut().cursor.line = bottom_line.min(self.current_buffer().line_count().saturating_sub(1));
-        self.current_window_mut().cursor.col = 0;
-        self.clamp_cursor();
-    }
-
-    fn scroll_top_to_screen(&mut self) {
-        // zt - Scroll so current line is at top of screen
-        self.current_window_mut().viewport.offset_line = self.current_window().cursor.line;
-    }
-
-    fn scroll_middle_to_screen(&mut self) {
-        // zz - Scroll so current line is at middle of screen
-        let half_height = self.current_window().viewport.height / 2;
-        self.current_window_mut().viewport.offset_line = self.current_window().cursor.line.saturating_sub(half_height);
-    }
-
-    fn scroll_bottom_to_screen(&mut self) {
-        // zb - Scroll so current line is at bottom of screen
-        let bottom_offset = self.current_window().viewport.height.saturating_sub(1);
-        self.current_window_mut().viewport.offset_line = self.current_window().cursor.line.saturating_sub(bottom_offset);
-    }
 
     fn move_paragraph_forward(&mut self) {
         let mut line = self.current_window().cursor.line + 1;
