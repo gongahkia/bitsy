@@ -37,6 +37,14 @@ regex = "1.11"
 # Clipboard support
 arboard = "3.4"
 
+# Markdown Preview
+pulldown-cmark = "0.11"
+tiny_http = "0.12"
+webbrowser = "1.0"
+ws = "0.9"
+portpicker = "0.1"
+lazy_static = "1.5"
+
 # Platform-specific dependencies
 [target.'cfg(unix)'.dependencies]
 # Unix-specific dependencies can be added here if needed

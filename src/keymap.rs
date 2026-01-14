@@ -113,6 +113,7 @@ pub enum Action {
 
     // Other
     RepeatLastChange,    // . (dot command)
+    ToggleZenMode,
     None,
 }
 
@@ -139,6 +140,7 @@ fn map_normal_mode_key(key: KeyEvent) -> Action {
         KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::Redo,
         KeyCode::Char('o') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::JumpBack,
         KeyCode::Char('i') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::JumpForward,
+        KeyCode::Char('z') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::ToggleZenMode,
 
         // Movement
         KeyCode::Char('h') => Action::MoveLeft,

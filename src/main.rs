@@ -2,6 +2,12 @@ use bitsy::Editor;
 use std::env;
 use std::process;
 
+mod viewport;
+mod window;
+
+use editor::Editor;
+use env_logger::Env;
+use std::env;
 fn main() {
     // Initialize logger
     env_logger::init();
