@@ -1543,7 +1543,11 @@ impl Editor {
         if start_line == end_line {
             // Same line
             if let Some(line_text) = self.current_buffer().get_line(start_line) {
-                let end = end_col.min(line_text.len());
+                let end = if end_col == usize::MAX {
+                    line_text.len()
+                } else {
+                    end_col.min(line_text.len())
+                };
                 let start = start_col.min(line_text.len());
                 return line_text[start..end].to_string();
             }
@@ -1556,7 +1560,12 @@ impl Editor {
                         result.push_str(&line_text[start_col.min(line_text.len())..]);
                         result.push('\n');
                     } else if line_idx == end_line {
-                        result.push_str(&line_text[..end_col.min(line_text.len())]);
+                        let end = if end_col == usize::MAX {
+                            line_text.len()
+                        } else {
+                            end_col.min(line_text.len())
+                        };
+                        result.push_str(&line_text[..end]);
                     } else {
                         result.push_str(&line_text);
                         result.push('\n');

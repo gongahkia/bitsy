@@ -153,8 +153,18 @@ impl Buffer {
 
     pub fn delete_range(&mut self, start_line: usize, start_col: usize, end_line: usize, end_col: usize) {
         let start_char = self.rope.line_to_char(start_line) + start_col;
-        let end_char = self.rope.line_to_char(end_line) + end_col;
-        if start_char < end_char && end_char <= self.rope.len_chars() {
+        
+        let end_char = if end_col == usize::MAX {
+            if end_line + 1 < self.rope.len_lines() {
+                self.rope.line_to_char(end_line + 1)
+            } else {
+                self.rope.len_chars()
+            }
+        } else {
+            self.rope.line_to_char(end_line) + end_col
+        };
+
+        if start_char <= end_char && end_char <= self.rope.len_chars() {
             self.rope.remove(start_char..end_char);
             self.modified = true;
         }
