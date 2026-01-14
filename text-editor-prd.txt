@@ -3,6 +3,27 @@
 # Stack: Rust (recommended) or Zig/C for performance
 # Max Implementation: 150 tasks
 
+## Phase 0
+
+(A) Now have it such that after opening a file, it immediately launches a localhost markdown preview in a browser and make it split screen if possible
+(A) Add Goyo and Lightline functionality (zen mode, highlighting) out of the box with sensible keybinds
+
+## Phase 11: Splits & Windows (7 tasks remaining)
+(A) 2026-01-09 Implement horizontal split (:split, Ctrl-w s) +windows @implementation
+(A) 2026-01-09 Implement vertical split (:vsplit, Ctrl-w v) +windows @implementation
+(A) 2026-01-09 Create window navigation (Ctrl-w h/j/k/l, Ctrl-w w) +windows @implementation
+(B) 2026-01-09 Build window resizing (Ctrl-w +/-/</>/, =) +windows @implementation
+(B) 2026-01-09 Implement window closing (Ctrl-w c, Ctrl-w q, :close) +windows @implementation
+(C) 2026-01-09 Create window rotation and layout commands (Ctrl-w r, Ctrl-w H/J/K/L) +windows @implementation
+(C) 2026-01-09 Build window-specific rendering and buffer management +windows @implementation
+## Phase 11: Splits & Windows (7 tasks remaining)
+(A) 2026-01-09 Implement horizontal split (:split, Ctrl-w s) +windows @implementation
+(A) 2026-01-09 Implement vertical split (:vsplit, Ctrl-w v) +windows @implementation
+(A) 2026-01-09 Create window navigation (Ctrl-w h/j/k/l, Ctrl-w w) +windows @implementation
+(B) 2026-01-09 Build window resizing (Ctrl-w +/-/</>/, =) +windows @implementation
+(B) 2026-01-09 Implement window closing (Ctrl-w c, Ctrl-w q, :close) +windows @implementation
+(C) 2026-01-09 Create window rotation and layout commands (Ctrl-w r, Ctrl-w H/J/K/L) +windows @implementation
+(C) 2026-01-09 Build window-specific rendering and buffer management +windows @implementation
 ## Phase 13: File Operations (7 tasks)
 (A) 2026-01-09 Implement file reading with encoding detection +files @implementation
 (A) 2026-01-09 Create file writing with encoding preservation +files @implementation

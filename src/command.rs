@@ -10,9 +10,9 @@ pub struct Range {
 
 #[derive(Debug)]
 pub enum Command {
-    Write,
+    Write(Option<String>),
     Quit,
-    WriteQuit,
+    WriteQuit(Option<String>),
     ForceQuit,
     Edit(String),
     GoToLine(usize),
@@ -46,9 +46,9 @@ pub fn parse_command(input: &str) -> Result<Command> {
     let (range, command) = parse_range(input);
 
     match command {
-        "w" | "write" => Ok(Command::Write),
+        "w" | "write" => Ok(Command::Write(None)),
         "q" | "quit" => Ok(Command::Quit),
-        "wq" | "x" => Ok(Command::WriteQuit),
+        "wq" | "x" => Ok(Command::WriteQuit(None)),
         "q!" => Ok(Command::ForceQuit),
         "d" | "delete" => Ok(Command::Delete { range }),
         _ => {
@@ -66,6 +66,10 @@ pub fn parse_command(input: &str) -> Result<Command> {
                 Ok(Command::Edit(filename.trim().to_string()))
             } else if let Some(filename) = command.strip_prefix("edit ") {
                 Ok(Command::Edit(filename.trim().to_string()))
+            } else if let Some(filename) = command.strip_prefix("wq ") {
+                Ok(Command::WriteQuit(Some(filename.trim().to_string())))
+            } else if let Some(filename) = command.strip_prefix("w ") {
+                Ok(Command::Write(Some(filename.trim().to_string())))
             } else if let Some(set_args) = command.strip_prefix("set ") {
                 parse_set(set_args.trim())
             } else if command == "set" {

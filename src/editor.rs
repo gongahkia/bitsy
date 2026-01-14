@@ -677,15 +677,23 @@ impl Editor {
         let cmd = parse_command(&self.command_buffer)?;
 
         match cmd {
-            Command::Write => {
-                if self.current_buffer().file_path().is_some() {
-                    if let Err(e) = self.current_buffer_mut().save() {
+            Command::Write(path) => {
+                if let Some(p) = path {
+                    if let Err(e) = self.current_buffer_mut().save_as(p) {
                         self.message = Some(format!("Error: {}", e));
                     } else {
                         self.message = Some("File written".to_string());
                     }
                 } else {
-                    self.message = Some("No file name. Use :w <filename>".to_string());
+                    if self.current_buffer().file_path().is_some() {
+                        if let Err(e) = self.current_buffer_mut().save() {
+                            self.message = Some(format!("Error: {}", e));
+                        } else {
+                            self.message = Some("File written".to_string());
+                        }
+                    } else {
+                        self.message = Some("No file name. Use :w <filename>".to_string());
+                    }
                 }
             }
             Command::Quit => {
@@ -699,15 +707,22 @@ impl Editor {
                     self.should_quit = true;
                 }
             }
-            Command::WriteQuit => {
-                if self.current_buffer().file_path().is_some() {
-                    if let Err(e) = self.current_buffer_mut().save() {
-                        self.message = Some(format!("Error: {}", e));
-                    } else {
-                        self.should_quit = true;
-                    }
+            Command::WriteQuit(path) => {
+                let save_result = if let Some(p) = path {
+                    self.current_buffer_mut().save_as(p)
                 } else {
-                    self.message = Some("No file name. Use :w <filename>".to_string());
+                    if self.current_buffer().file_path().is_some() {
+                        self.current_buffer_mut().save()
+                    } else {
+                        self.message = Some("No file name. Use :w <filename>".to_string());
+                        return Ok(());
+                    }
+                };
+
+                if let Err(e) = save_result {
+                    self.message = Some(format!("Error: {}", e));
+                } else {
+                    self.should_quit = true;
                 }
             }
             Command::ForceQuit => {
