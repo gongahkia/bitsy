@@ -125,11 +125,8 @@ dependencies = [
  "arboard",
  "crossterm",
  "env_logger",
-<<<<<<< HEAD
  "is-terminal",
-=======
  "lazy_static",
->>>>>>> b6c6fc4f7e1de941891a114b09cd81027f7794bc
  "log",
  "portpicker",
  "pulldown-cmark",
