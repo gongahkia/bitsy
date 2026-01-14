@@ -827,12 +827,85 @@ impl Editor {
                 }
             }
             Command::Help(topic) => {
-                let help_text = if let Some(t) = topic {
-                    self.get_help_topic(&t)
+                let help_text = if let Some(ref t) = topic {
+                    self.get_help_topic(t)
                 } else {
                     self.get_general_help()
                 };
                 self.message = Some(help_text);
+                if topic.is_none() {
+                    // Show all keybinds in the buffer
+                    let help_text = r#"Bitsy Keybinds
+
+NORMAL MODE
+  h/j/k/l         Move left/down/up/right
+  w/b/e           Move by word
+  0/$             Line start/end
+  gg/G            File start/end
+  %               Matching bracket
+  Ctrl-b/f/u/d    Page/half-page up/down
+  ( ) { }         Sentence/paragraph
+  :               Command mode
+  i/a/I/A/o/O     Insert/append
+  v/V             Visual/visual line mode
+  d/y/c           Delete/yank/change (waits for motion)
+  dd/yy/cc        Delete/yank/change line
+  p/P             Paste after/before
+  u/ctrl-r        Undo/redo
+  .               Repeat last change
+  >/<             Indent/dedent
+  =               Auto-indent
+  J               Join lines
+  m{char}         Set mark
+  '{char}/`{char}  Jump to mark
+  q{reg}/@{reg}   Record/play macro
+  "/0-9a-z        Registers
+
+VISUAL MODE
+  h/j/k/l         Move selection
+  d/y             Delete/yank selection
+  p               Paste over selection
+  v/V             Toggle visual/visual line mode
+  ESC             Exit visual mode
+
+COMMANDS
+  :w              Write file
+  :q              Quit
+  :e <file>       Edit file
+  :set <opt>      Set option
+  :help           Show help
+  :d <range>      Delete lines
+  :s/find/rep/g   Substitute
+
+SEARCH
+  /pattern        Search forward
+  ?pattern        Search backward
+  n/N             Next/prev match
+  * #             Search word under cursor
+
+("#;
+                    let buf = self.current_buffer_mut();
+                    // Clear buffer
+                    let line_count = buf.line_count();
+                    for i in (0..line_count).rev() {
+                        let len = buf.line_len(i);
+                        buf.delete_range(i, 0, i, len);
+                    }
+                    // Insert help text
+                    for (i, line) in help_text.lines().enumerate() {
+                        if i == 0 {
+                            for (j, ch) in line.chars().enumerate() {
+                                buf.insert_char(0, j, ch);
+                            }
+                        } else {
+                            buf.insert_newline(i - 1, buf.line_len(i - 1));
+                            for (j, ch) in line.chars().enumerate() {
+                                buf.insert_char(i, j, ch);
+                            }
+                        }
+                    }
+                    self.message = Some("Help loaded into buffer".to_string());
+                }
             }
             Command::BufferNext => {
                 // Single buffer for now - show message
@@ -1345,7 +1418,7 @@ impl Editor {
                             lines.push(line_text);
                         }
                     }
-                    self.registers.set_delete(None, RegisterContent::Line(lines));
+                    self.registers.set_delete(None, RegisterContent::Line(lines.clone()));
 
                     // Delete the lines
                     for _ in 0..count {
@@ -1365,6 +1438,7 @@ impl Editor {
                             break;
                         }
                     }
+                    self.message = Some(format!("{} line{} deleted", lines.len(), if lines.len() == 1 { "" } else { "s" }));
                 }
                 "yank_line" => {
                     let start_line = self.current_window().cursor.line;
@@ -1391,7 +1465,7 @@ impl Editor {
                             lines.push(line_text);
                         }
                     }
-                    self.registers.set_delete(None, RegisterContent::Line(lines));
+                    self.registers.set_delete(None, RegisterContent::Line(lines.clone()));
 
                     // Delete line content(s) and enter insert mode
                     let line = self.current_window().cursor.line;
@@ -1412,6 +1486,7 @@ impl Editor {
 
                     self.current_window_mut().cursor.col = 0;
                     self.mode = Mode::Insert;
+                    self.message = Some(format!("{} line{} deleted", lines.len(), if lines.len() == 1 { "" } else { "s" }));
                 }
                 _ => {}
             }
@@ -2333,11 +2408,12 @@ impl Editor {
                                 }
                             }
                             RegisterContent::Line(lines) => {
-                                // Paste line(s) below current line
+                                // Paste line(s) below current line, preserving order
                                 let insert_line = self.current_window().cursor.line + 1;
+                                // Insert from last to first to avoid shifting lines
                                 for (i, line) in lines.iter().enumerate() {
-                                    // Insert newline to create space
                                     let target_line = insert_line + i;
+                                    // Insert newline to create space
                                     if target_line > 0 {
                                         let prev_line = target_line - 1;
                                         let prev_line_len = self.current_buffer().line_len(prev_line);
@@ -2348,7 +2424,7 @@ impl Editor {
                                         self.current_buffer_mut().insert_char(target_line, 0, ch);
                                     }
                                 }
-                                self.current_window_mut().cursor.line = insert_line;
+                                self.current_window_mut().cursor.line = insert_line + lines.len() - 1;
                                 self.current_window_mut().cursor.col = 0;
                             }
                             _ => {}
