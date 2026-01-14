@@ -37,6 +37,7 @@ pub struct Editor {
     terminal: Terminal,
     buffers: Vec<Buffer>,
     undo_history: Vec<Buffer>,
+    redo_history: Vec<Buffer>,
     mode: Mode,
     statusline: StatusLine,
     command_buffer: String,
@@ -118,6 +119,7 @@ impl Editor {
             terminal,
             buffers: vec![Buffer::new()],
             undo_history: Vec::new(),
+            redo_history: Vec::new(),
             mode: Mode::Normal,
             statusline: StatusLine::new(),
             command_buffer: String::new(),
@@ -1756,15 +1758,30 @@ impl Editor {
     fn save_undo_state(&mut self) {
         let buffer_clone = self.current_buffer().clone();
         self.undo_history.push(buffer_clone);
+        self.redo_history.clear();
     }
 
     fn undo(&mut self) {
         if let Some(previous_buffer) = self.undo_history.pop() {
+            let current_buffer = self.current_buffer().clone();
+            self.redo_history.push(current_buffer);
             let buffer_idx = self.current_window().buffer_index;
             self.buffers[buffer_idx] = previous_buffer;
             self.message = Some("Undone".to_string());
         } else {
             self.message = Some("Already at oldest change".to_string());
+        }
+    }
+
+    fn redo(&mut self) {
+        if let Some(next_buffer) = self.redo_history.pop() {
+            let current_buffer = self.current_buffer().clone();
+            self.undo_history.push(current_buffer);
+            let buffer_idx = self.current_window().buffer_index;
+            self.buffers[buffer_idx] = next_buffer;
+            self.message = Some("Redone".to_string());
+        } else {
+            self.message = Some("Already at newest change".to_string());
         }
     }
 
@@ -2140,6 +2157,9 @@ impl Editor {
 
             Action::Undo => {
                 self.undo();
+            }
+            Action::Redo => {
+                self.redo();
             }
 
             // Operators
