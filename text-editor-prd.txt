@@ -5,43 +5,6 @@
 
 FIXME: Fix double borrow errors in src/editor.rs (handle_operator_motion, render functions) caused by refactoring to Window/Buffer architecture. See handle_operator_motion around lines 1300+.
 
-## Phase 1: Project Foundation (0 tasks remaining - COMPLETE)
-
-## Phase 2: Core Editor Infrastructure (0 tasks remaining - COMPLETE)
-
-## Phase 3: Text Buffer & Data Structures (0 tasks remaining - COMPLETE)
-
-## Phase 4: Vim Modal System (0 tasks remaining - COMPLETE)
-
-## Phase 5: Vim Motions (0 tasks remaining - COMPLETE)
-
-## Phase 6: Vim Operators (0 tasks remaining - COMPLETE)
-
-## Phase 7: Command Mode (0 tasks remaining - COMPLETE)
-
-## Phase 8: Registers & Clipboard (0 tasks remaining - COMPLETE)
-
-## Phase 9: Marks & Jump List (0 tasks remaining - COMPLETE)
-
-## Phase 10: Macros (0 tasks remaining - COMPLETE)
-
-## Phase 11: Splits & Windows (7 tasks remaining)
-(A) 2026-01-09 Implement horizontal split (:split, Ctrl-w s) +windows @implementation
-(A) 2026-01-09 Implement vertical split (:vsplit, Ctrl-w v) +windows @implementation
-(A) 2026-01-09 Create window navigation (Ctrl-w h/j/k/l, Ctrl-w w) +windows @implementation
-(B) 2026-01-09 Build window resizing (Ctrl-w +/-/</>/, =) +windows @implementation
-(B) 2026-01-09 Implement window closing (Ctrl-w c, Ctrl-w q, :close) +windows @implementation
-(C) 2026-01-09 Create window rotation and layout commands (Ctrl-w r, Ctrl-w H/J/K/L) +windows @implementation
-(C) 2026-01-09 Build window-specific rendering and buffer management +windows @implementation
-
-## Phase 12: Buffer Management (6 tasks)
-(A) 2026-01-09 Create buffer list data structure +buffers @implementation
-(A) 2026-01-09 Implement buffer switching (:buffer, :bnext, :bprev) +buffers @implementation
-(A) 2026-01-09 Build buffer creation and deletion (:enew, :bdelete, :bwipeout) +buffers @implementation
-(B) 2026-01-09 Create buffer list viewer (:ls, :buffers) +buffers @implementation
-(B) 2026-01-09 Implement modified buffer warnings on quit +buffers @implementation
-(C) 2026-01-09 Build alternate file switching (Ctrl-^, :e #) +buffers @implementation
-
 ## Phase 13: File Operations (7 tasks)
 (A) 2026-01-09 Implement file reading with encoding detection +files @implementation
 (A) 2026-01-09 Create file writing with encoding preservation +files @implementation
@@ -67,6 +30,24 @@ FIXME: Fix double borrow errors in src/editor.rs (handle_operator_motion, render
 (B) 2026-01-09 Build case-sensitive/insensitive search toggle +search @implementation
 (B) 2026-01-09 Implement substitute command with confirmation (:%s///gc) +search @implementation
 (C) 2026-01-09 Create search history navigation +search @implementation
+
+
+## Phase 11: Splits & Windows (7 tasks remaining)
+(A) 2026-01-09 Implement horizontal split (:split, Ctrl-w s) +windows @implementation
+(A) 2026-01-09 Implement vertical split (:vsplit, Ctrl-w v) +windows @implementation
+(A) 2026-01-09 Create window navigation (Ctrl-w h/j/k/l, Ctrl-w w) +windows @implementation
+(B) 2026-01-09 Build window resizing (Ctrl-w +/-/</>/, =) +windows @implementation
+(B) 2026-01-09 Implement window closing (Ctrl-w c, Ctrl-w q, :close) +windows @implementation
+(C) 2026-01-09 Create window rotation and layout commands (Ctrl-w r, Ctrl-w H/J/K/L) +windows @implementation
+(C) 2026-01-09 Build window-specific rendering and buffer management +windows @implementation
+
+## Phase 12: Buffer Management (6 tasks)
+(A) 2026-01-09 Create buffer list data structure +buffers @implementation
+(A) 2026-01-09 Implement buffer switching (:buffer, :bnext, :bprev) +buffers @implementation
+(A) 2026-01-09 Build buffer creation and deletion (:enew, :bdelete, :bwipeout) +buffers @implementation
+(B) 2026-01-09 Create buffer list viewer (:ls, :buffers) +buffers @implementation
+(B) 2026-01-09 Implement modified buffer warnings on quit +buffers @implementation
+(C) 2026-01-09 Build alternate file switching (Ctrl-^, :e #) +buffers @implementation
 
 ## Phase 16: Syntax Highlighting (10 tasks)
 (A) 2026-01-09 Integrate tree-sitter library +syntax @implementation
