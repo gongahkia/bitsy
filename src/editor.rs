@@ -1578,12 +1578,24 @@ SEARCH
 
         match self.pending_operator {
             PendingOperator::Delete => {
-                // Get the text being deleted
-                let deleted_text = self.get_range_text(start_line, start_col, end_line, end_col);
-                self.registers.set_delete(None, RegisterContent::Char(deleted_text));
-
-                // Delete the range
-                self.current_buffer_mut().delete_range(start_line, start_col, end_line, end_col);
+                // Detect if this is a linewise delete (visual line mode or full lines)
+                if start_col == 0 && end_col == usize::MAX {
+                    // Linewise delete
+                    let mut lines = Vec::new();
+                    for line_idx in start_line..=end_line {
+                        if let Some(line_text) = self.current_buffer().get_line(line_idx) {
+                            lines.push(line_text);
+                        }
+                    }
+                    self.registers.set_delete(None, RegisterContent::Line(lines.clone()));
+                    self.current_buffer_mut().delete_range(start_line, start_col, end_line, end_col);
+                    self.message = Some(format!("{} line{} deleted", lines.len(), if lines.len() == 1 { "" } else { "s" }));
+                } else {
+                    // Character-wise delete
+                    let deleted_text = self.get_range_text(start_line, start_col, end_line, end_col);
+                    self.registers.set_delete(None, RegisterContent::Char(deleted_text));
+                    self.current_buffer_mut().delete_range(start_line, start_col, end_line, end_col);
+                }
             }
             PendingOperator::Yank => {
                 // Detect if this is a linewise yank (visual line mode or full lines)
