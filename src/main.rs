@@ -1,8 +1,14 @@
 use bitsy::Editor;
 use std::env;
+use std::io;
 use std::process;
+use is_terminal::IsTerminal;
 
 fn main() {
+    if !io::stdout().is_terminal() {
+        eprintln!("Error: This application must be run in a terminal.");
+        process::exit(1);
+    }
     // Initialize logger
     env_logger::init();
 

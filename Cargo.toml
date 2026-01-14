@@ -36,6 +36,7 @@ regex = "1.11"
 
 # Clipboard support
 arboard = "3.4"
+is-terminal = "0.4.17"
 
 # Platform-specific dependencies
 [target.'cfg(unix)'.dependencies]
