@@ -14,7 +14,6 @@
 
 ## Phase 14: Undo/Redo System (5 tasks)
 (A) 2026-01-09 Design undo tree data structure (support branching undo) +undo @design
-(A) 2026-01-09 Implement undo command (u) +undo @implementation
 (A) 2026-01-09 Implement redo command (Ctrl-r) +undo @implementation
 (B) 2026-01-09 Create undo tree traversal (g-, g+, :earlier, :later) +undo @implementation
 (C) 2026-01-09 Build undo tree visualizer (:undolist) +undo @implementation
