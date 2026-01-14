@@ -8,6 +8,7 @@ use std::fs;
 
 use crate::buffer::Buffer;
 use crate::command::{parse_command, Command};
+use crate::command_bar::CommandBar;
 use crate::config::{Config, LineNumberMode};
 use crate::cursor::Cursor;
 use crate::error::Result;
@@ -40,6 +41,7 @@ pub struct Editor {
     redo_history: Vec<Buffer>,
     mode: Mode,
     statusline: StatusLine,
+    command_bar: CommandBar,
     command_buffer: String,
     message: Option<String>,
     should_quit: bool,
@@ -121,6 +123,7 @@ impl Editor {
             redo_history: Vec::new(),
             mode: Mode::Normal,
             statusline: StatusLine::new(),
+            command_bar: CommandBar::new(),
             command_buffer: String::new(),
             message: None,
             should_quit: false,
@@ -675,19 +678,37 @@ impl Editor {
 
         match cmd {
             Command::Write => {
-                self.current_buffer_mut().save()?;
-                self.message = Some("File written".to_string());
+                if self.current_buffer().file_path().is_some() {
+                    if let Err(e) = self.current_buffer_mut().save() {
+                        self.message = Some(format!("Error: {}", e));
+                    } else {
+                        self.message = Some("File written".to_string());
+                    }
+                } else {
+                    self.message = Some("No file name. Use :w <filename>".to_string());
+                }
             }
             Command::Quit => {
                 if self.current_buffer().is_modified() {
-                    self.message = Some("No write since last change (use :q! to force)".to_string());
+                    if self.current_buffer().file_path().is_none() {
+                        self.message = Some("No file name. Use :w <filename> to save.".to_string());
+                    } else {
+                        self.message = Some("No write since last change (use :q! to force)".to_string());
+                    }
                 } else {
                     self.should_quit = true;
                 }
             }
             Command::WriteQuit => {
-                self.current_buffer_mut().save()?;
-                self.should_quit = true;
+                if self.current_buffer().file_path().is_some() {
+                    if let Err(e) = self.current_buffer_mut().save() {
+                        self.message = Some(format!("Error: {}", e));
+                    } else {
+                        self.should_quit = true;
+                    }
+                } else {
+                    self.message = Some("No file name. Use :w <filename>".to_string());
+                }
             }
             Command::ForceQuit => {
                 self.should_quit = true;
@@ -2164,8 +2185,19 @@ impl Editor {
 
             // Operators
             Action::Delete => {
-                // Set pending operator
-                self.pending_operator = PendingOperator::Delete;
+                if matches!(self.mode, Mode::Visual | Mode::VisualLine | Mode::VisualBlock) {
+                    if let Some(selection) = self.selection.clone() {
+                        let (start, end) = selection.range();
+                        self.pending_operator = PendingOperator::Delete;
+                        self.apply_operator_to_range(start.line, start.col, end.line, end.col)?;
+                        self.pending_operator = PendingOperator::None;
+                        self.mode = Mode::Normal;
+                        self.selection = None;
+                    }
+                } else {
+                    // Set pending operator for normal mode
+                    self.pending_operator = PendingOperator::Delete;
+                }
             }
             Action::DeleteToEnd => {
                 self.save_undo_state();
@@ -3274,25 +3306,21 @@ impl Editor {
     }
 
     fn render_command_line(&mut self) -> Result<()> {
-        let (_, height) = self.terminal.size();
+        let (width, height) = self.terminal.size();
         let command_row = height.saturating_sub(1);
 
         self.terminal.move_cursor(0, command_row)?;
 
-        if self.mode == Mode::Command {
-            let cmd_line = format!(":{}", self.command_buffer);
-            self.terminal.print(&cmd_line)?;
-        } else if self.mode == Mode::Search {
-            let search_line = if self.search_forward {
-                format!("/{}", self.search_buffer)
-            } else {
-                format!("?{}", self.search_buffer)
-            };
-            self.terminal.print(&search_line)?;
-        } else if let Some(ref msg) = self.message {
-            self.terminal.print(msg)?;
-            // self.message = None; // Do not clear message here, logic should be elsewhere
-        }
+        let command_bar_text = self.command_bar.render(
+            width as usize,
+            self.mode,
+            &self.command_buffer,
+            &self.search_buffer,
+            self.search_forward,
+            &self.message,
+        );
+
+        self.terminal.print_with_bg(&command_bar_text, Color::White, Color::DarkGrey)?;
 
         Ok(())
     }

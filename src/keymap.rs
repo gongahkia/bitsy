@@ -245,6 +245,7 @@ fn map_visual_mode_key(key: KeyEvent) -> Action {
         KeyCode::Char('j') => Action::MoveDown,
         KeyCode::Char('k') => Action::MoveUp,
         KeyCode::Char('l') => Action::MoveRight,
+        KeyCode::Char('d') => Action::Delete,
         _ => Action::None,
     }
 }
