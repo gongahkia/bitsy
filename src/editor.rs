@@ -256,7 +256,7 @@ impl Editor {
 
                             if let Some((line, _col)) = pos {
                                 let line_count = self.current_buffer().line_count();
-                                let mut window = self.current_window_mut();
+                                let window = self.current_window_mut();
                                 window.cursor.line = line.min(line_count.saturating_sub(1));
                                 window.cursor.col = 0;
                                 self.clamp_cursor();
@@ -273,7 +273,7 @@ impl Editor {
 
                             if let Some((line, col)) = pos {
                                 let line_count = self.current_buffer().line_count();
-                                let mut window = self.current_window_mut();
+                                let window = self.current_window_mut();
                                 window.cursor.line = line.min(line_count.saturating_sub(1));
                                 window.cursor.col = col;
                                 self.clamp_cursor();
@@ -935,7 +935,7 @@ impl Editor {
         // Search from current position to end of current line
         if let Some(line_text) = self.current_buffer().get_line(start_line) {
             if let Some(pos) = line_text[start_col.min(line_text.len())..].find(pattern) {
-                let mut window = self.current_window_mut();
+                let window = self.current_window_mut();
                 window.cursor.line = start_line;
                 window.cursor.col = start_col + pos;
                 return true;
@@ -946,7 +946,7 @@ impl Editor {
         for line_idx in (start_line + 1)..line_count {
             if let Some(line_text) = self.current_buffer().get_line(line_idx) {
                 if let Some(pos) = line_text.find(pattern) {
-                    let mut window = self.current_window_mut();
+                    let window = self.current_window_mut();
                     window.cursor.line = line_idx;
                     window.cursor.col = pos;
                     return true;
@@ -958,7 +958,7 @@ impl Editor {
         for line_idx in 0..start_line {
             if let Some(line_text) = self.current_buffer().get_line(line_idx) {
                 if let Some(pos) = line_text.find(pattern) {
-                    let mut window = self.current_window_mut();
+                    let window = self.current_window_mut();
                     window.cursor.line = line_idx;
                     window.cursor.col = pos;
                     self.message = Some("search hit BOTTOM, continuing at TOP".to_string());
@@ -975,7 +975,7 @@ impl Editor {
         if let Some(line_text) = self.current_buffer().get_line(start_line) {
             let search_text = &line_text[..start_col.min(line_text.len())];
             if let Some(pos) = search_text.rfind(pattern) {
-                let mut window = self.current_window_mut();
+                let window = self.current_window_mut();
                 window.cursor.line = start_line;
                 window.cursor.col = pos;
                 return true;
@@ -987,7 +987,7 @@ impl Editor {
             for line_idx in (0..start_line).rev() {
                 if let Some(line_text) = self.current_buffer().get_line(line_idx) {
                     if let Some(pos) = line_text.rfind(pattern) {
-                        let mut window = self.current_window_mut();
+                        let window = self.current_window_mut();
                         window.cursor.line = line_idx;
                         window.cursor.col = pos;
                         return true;
@@ -1001,7 +1001,7 @@ impl Editor {
         for line_idx in (start_line + 1..line_count).rev() {
             if let Some(line_text) = self.current_buffer().get_line(line_idx) {
                 if let Some(pos) = line_text.rfind(pattern) {
-                    let mut window = self.current_window_mut();
+                    let window = self.current_window_mut();
                     window.cursor.line = line_idx;
                     window.cursor.col = pos;
                     self.message = Some("search hit TOP, continuing at BOTTOM".to_string());

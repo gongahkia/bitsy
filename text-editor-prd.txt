@@ -3,8 +3,6 @@
 # Stack: Rust (recommended) or Zig/C for performance
 # Max Implementation: 150 tasks
 
-FIXME: Fix double borrow errors in src/editor.rs (handle_operator_motion, render functions) caused by refactoring to Window/Buffer architecture. See handle_operator_motion around lines 1300+.
-
 ## Phase 13: File Operations (7 tasks)
 (A) 2026-01-09 Implement file reading with encoding detection +files @implementation
 (A) 2026-01-09 Create file writing with encoding preservation +files @implementation
