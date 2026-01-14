@@ -147,10 +147,14 @@ fn parse_substitute(input: &str, range: Option<Range>) -> Result<Command> {
     // Parse s/pattern/replacement/flags
     let parts: Vec<&str> = input.split('/').collect();
     if parts.len() < 2 {
-        return Err(Error::ParseError("Invalid substitute syntax".to_string()));
+        return Err(Error::ParseError("Substitute syntax: s/pattern/replacement/[g]".to_string()));
     }
 
     let pattern = parts[0].to_string();
+    if pattern.is_empty() {
+        return Err(Error::ParseError("Substitute pattern cannot be empty".to_string()));
+    }
+
     let replacement = parts[1].to_string();
     let flags = if parts.len() > 2 { parts[2] } else { "" };
 
