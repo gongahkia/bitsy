@@ -25,16 +25,6 @@
 (B) 2026-01-09 Implement substitute command with confirmation (:%s///gc) +search @implementation
 (C) 2026-01-09 Create search history navigation +search @implementation
 
-
-## Phase 11: Splits & Windows (7 tasks remaining)
-(A) 2026-01-09 Implement horizontal split (:split, Ctrl-w s) +windows @implementation
-(A) 2026-01-09 Implement vertical split (:vsplit, Ctrl-w v) +windows @implementation
-(A) 2026-01-09 Create window navigation (Ctrl-w h/j/k/l, Ctrl-w w) +windows @implementation
-(B) 2026-01-09 Build window resizing (Ctrl-w +/-/</>/, =) +windows @implementation
-(B) 2026-01-09 Implement window closing (Ctrl-w c, Ctrl-w q, :close) +windows @implementation
-(C) 2026-01-09 Create window rotation and layout commands (Ctrl-w r, Ctrl-w H/J/K/L) +windows @implementation
-(C) 2026-01-09 Build window-specific rendering and buffer management +windows @implementation
-
 ## Phase 12: Buffer Management (6 tasks)
 (A) 2026-01-09 Create buffer list data structure +buffers @implementation
 (A) 2026-01-09 Implement buffer switching (:buffer, :bnext, :bprev) +buffers @implementation
@@ -55,15 +45,6 @@
 (C) 2026-01-09 Implement rainbow brackets/parentheses +syntax @implementation
 (C) 2026-01-09 Create custom language syntax loader +syntax @implementation
 
-## Phase 17: File Explorer (7 tasks)
-(B) 2026-01-09 Design file tree data structure and navigation +explorer @design
-(B) 2026-01-09 Implement file explorer pane (:Ex, :Vex, :Sex) +explorer @implementation
-(B) 2026-01-09 Create file tree rendering with icons (nerdfonts) +explorer @implementation
-(B) 2026-01-09 Build file/directory navigation (Enter, -, h, l) +explorer @implementation
-(B) 2026-01-09 Implement file operations (create, delete, rename, move) +explorer @implementation
-(C) 2026-01-09 Create hidden file toggle and filtering +explorer @implementation
-(C) 2026-01-09 Build file search in explorer +explorer @implementation
-
 ## Phase 18: Fuzzy Finder (6 tasks)
 (B) 2026-01-09 Implement fuzzy matching algorithm (fzf-style) +fuzzy @implementation
 (B) 2026-01-09 Create file fuzzy finder (Ctrl-p or :Files) +fuzzy @implementation
@@ -72,28 +53,19 @@
 (C) 2026-01-09 Create fuzzy finder preview pane +fuzzy @implementation
 (C) 2026-01-09 Build fuzzy finder with git integration (git files, git status) +fuzzy @implementation
 
-## Phase 19: LSP Integration (8 tasks)
-(B) 2026-01-09 Integrate LSP client library +lsp @implementation
-(B) 2026-01-09 Implement LSP server spawning and initialization +lsp @implementation
-(B) 2026-01-09 Create textDocument/didOpen, didChange, didSave notifications +lsp @implementation
-(B) 2026-01-09 Build go-to-definition (gd) support +lsp @implementation
-(B) 2026-01-09 Implement auto-completion popup +lsp @implementation
-(C) 2026-01-09 Create hover documentation (K) +lsp @implementation
-(C) 2026-01-09 Build diagnostics display (errors/warnings in gutter and status) +lsp @implementation
-(C) 2026-01-09 Implement code actions and refactoring support +lsp @implementation
-
-## Phase 20: Plugin System (6 tasks)
-(C) 2026-01-09 Design plugin API and hook system +plugins @design
-(C) 2026-01-09 Implement plugin loader and initialization +plugins @implementation
-(C) 2026-01-09 Create plugin command registration +plugins @implementation
-(C) 2026-01-09 Build plugin configuration system +plugins @implementation
-(C) 2026-01-09 Implement scripting interface (Lua/Rhai embedding) +plugins @implementation
-(C) 2026-01-09 Create example plugins and plugin documentation +plugins @docs
-
 ## Phase 21: Configuration (5 tasks)
 (B) 2026-01-09 Build keymap customization system +config @implementation
 (B) 2026-01-09 Implement theme/color scheme loading +config @implementation
 (C) 2026-01-09 Create default config generation and examples +config @docs
+
+## Phase 17: File Explorer (7 tasks)
+(B) 2026-01-09 Design file tree data structure and navigation +explorer @design
+(B) 2026-01-09 Implement file explorer pane (:Ex, :Vex, :Sex) +explorer @implementation
+(B) 2026-01-09 Create file tree rendering with icons (nerdfonts) +explorer @implementation
+(B) 2026-01-09 Build file/directory navigation (Enter, -, h, l) +explorer @implementation
+(B) 2026-01-09 Implement file operations (create, delete, rename, move) +explorer @implementation
+(C) 2026-01-09 Create hidden file toggle and filtering +explorer @implementation
+(C) 2026-01-09 Build file search in explorer +explorer @implementation
 
 ## Phase 22: Performance & Polish (8 tasks)
 (B) 2026-01-09 Profile and optimize rendering pipeline +performance @optimization
@@ -110,10 +82,8 @@
 (B) 2026-01-09 Write unit tests for vim motions and operators +testing @implementation
 (B) 2026-01-09 Write integration tests for command mode +testing @implementation
 (B) 2026-01-09 Create end-to-end tests for common workflows +testing @implementation
-(C) 2026-01-09 Build user manual/tutorial documentation +docs @writing
 (C) 2026-01-09 Create vim compatibility documentation +docs @writing
-(C) 2026-01-09 Write API documentation for plugins +docs @writing
-(C) 2026-01-09 Create architecture and contribution guide +docs @writing
+(C) 2026-01-09 Create architecture markdown file with mermaid diagram +docs @writing
 
 # Phases 1-8: 40 tasks remaining (48 completed)
 # Phases 9-23: 102 tasks remaining (not yet started)
