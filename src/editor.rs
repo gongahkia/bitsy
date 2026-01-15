@@ -77,6 +77,7 @@ pub struct Editor {
     last_macro_register: Option<char>,
     windows: Vec<Window>,
     active_window: usize,
+    needs_render: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -162,6 +163,7 @@ impl Editor {
             last_macro_register: None,
             windows: vec![window],
             active_window: 0,
+            needs_render: true,
         })
     }
 
@@ -192,7 +194,10 @@ impl Editor {
 
     pub fn run(&mut self) -> Result<()> {
         loop {
-            self.render()?;
+            if self.needs_render {
+                self.render()?;
+                self.needs_render = false;
+            }
 
             if self.should_quit {
                 break;
@@ -200,6 +205,7 @@ impl Editor {
 
             if let Some(event) = self.terminal.read_event()? {
                 self.handle_event(event)?;
+                self.needs_render = true;
             }
         }
 
@@ -3334,7 +3340,8 @@ SEARCH
     }
 
     fn render(&mut self) -> Result<()> {
-        self.terminal.clear_screen()?;
+        // Hide cursor during render to prevent flicker
+        self.terminal.hide_cursor()?;
 
         // Render buffer content
         self.render_buffer()?;
@@ -3369,6 +3376,7 @@ SEARCH
             let file_line = offset_line + row;
 
             self.terminal.move_cursor(0, row as u16)?;
+            self.terminal.clear_line()?;
 
             if file_line < self.current_buffer().line_count() {
                 // Render line number
@@ -3526,6 +3534,7 @@ SEARCH
         let status_row = height.saturating_sub(2);
 
         self.terminal.move_cursor(0, status_row)?;
+        self.terminal.clear_line()?;
 
         let filename = self.current_buffer().file_name();
         let total_lines = self.current_buffer().line_count();
@@ -3545,6 +3554,7 @@ SEARCH
         let command_row = height.saturating_sub(1);
 
         self.terminal.move_cursor(0, command_row)?;
+        self.terminal.clear_line()?;
 
         let command_bar_text = self.command_bar.render(
             width as usize,
