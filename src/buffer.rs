@@ -67,6 +67,16 @@ impl Buffer {
         }
     }
 
+    pub fn from_string(content: &str) -> Self {
+        Self {
+            rope: Rope::from_str(content),
+            file_path: None,
+            modified: false,
+            line_ending: LineEnding::default(),
+            marks: HashMap::new(),
+        }
+    }
+
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let content = fs::read_to_string(&path)?;
 
