@@ -78,6 +78,7 @@ pub struct Editor {
     windows: Vec<Window>,
     active_window: usize,
     needs_render: bool,
+    showing_landing_page: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -164,6 +165,7 @@ impl Editor {
             windows: vec![window],
             active_window: 0,
             needs_render: true,
+            showing_landing_page: false,
         })
     }
 
