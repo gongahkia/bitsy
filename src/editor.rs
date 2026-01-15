@@ -194,6 +194,106 @@ impl Editor {
         Ok(())
     }
 
+    pub fn show_landing_page(&mut self) {
+        let (width, height) = self.terminal.size();
+        let content_height = height.saturating_sub(2) as usize;
+
+        let logo = r#"
+    __    _ __
+   / /_  (_) /________  __
+  / __ \/ / __/ ___/ / / /
+ / /_/ / / /_(__  ) /_/ /
+/_.___/_/\__/____/\__, /
+                 /____/   "#;
+
+        let version = "v0.1.0";
+        let tagline = "A minimal Vim-inspired terminal editor";
+
+        let quick_start = vec![
+            "",
+            "Quick Start",
+            "-----------",
+            "  :e <file>     Open a file",
+            "  :w            Save file",
+            "  :q            Quit",
+            "  :help         Show help",
+            "",
+            "Navigation",
+            "----------",
+            "  h j k l       Move cursor",
+            "  w b e         Word motions",
+            "  gg G          File start/end",
+            "",
+            "Editing",
+            "-------",
+            "  i             Insert mode",
+            "  d             Delete",
+            "  y p           Yank/paste",
+            "  u             Undo",
+            "",
+            "Press any key to start editing...",
+        ];
+
+        // Build the landing page content
+        let mut lines: Vec<String> = Vec::new();
+
+        // Calculate vertical centering
+        let logo_lines: Vec<&str> = logo.lines().collect();
+        let total_content_lines = logo_lines.len() + 2 + quick_start.len();
+        let top_padding = content_height.saturating_sub(total_content_lines) / 2;
+
+        // Add top padding
+        for _ in 0..top_padding {
+            lines.push(String::new());
+        }
+
+        // Add logo (centered)
+        for logo_line in logo_lines {
+            let padding = (width as usize).saturating_sub(logo_line.len()) / 2;
+            lines.push(format!("{}{}", " ".repeat(padding), logo_line));
+        }
+
+        // Add version and tagline (centered)
+        let version_line = format!("{} - {}", version, tagline);
+        let version_padding = (width as usize).saturating_sub(version_line.len()) / 2;
+        lines.push(format!("{}{}", " ".repeat(version_padding), version_line));
+        lines.push(String::new());
+
+        // Add quick start guide (centered)
+        for line in &quick_start {
+            let padding = (width as usize).saturating_sub(line.len()) / 2;
+            lines.push(format!("{}{}", " ".repeat(padding), line));
+        }
+
+        // Fill remaining space
+        while lines.len() < content_height {
+            lines.push(String::new());
+        }
+
+        // Insert content into buffer
+        let buf = self.current_buffer_mut();
+        for (i, line) in lines.iter().enumerate() {
+            if i == 0 {
+                for (j, ch) in line.chars().enumerate() {
+                    buf.insert_char(0, j, ch);
+                }
+            } else {
+                let last_line = buf.line_count().saturating_sub(1);
+                let last_col = buf.line_len(last_line);
+                buf.insert_char(last_line, last_col, '\n');
+                let new_line = buf.line_count().saturating_sub(1);
+                for (j, ch) in line.chars().enumerate() {
+                    buf.insert_char(new_line, j, ch);
+                }
+            }
+        }
+
+        // Mark buffer as not modified (it's just the landing page)
+        self.current_buffer_mut().clear_modified();
+        self.showing_landing_page = true;
+        self.windows[0].cursor = Cursor::default();
+    }
+
     pub fn run(&mut self) -> Result<()> {
         loop {
             if self.needs_render {
