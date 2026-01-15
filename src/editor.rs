@@ -195,79 +195,61 @@ impl Editor {
     }
 
     pub fn show_landing_page(&mut self) {
-        let (width, height) = self.terminal.size();
-        let content_height = height.saturating_sub(2) as usize;
+        let (width, _height) = self.terminal.size();
 
-        let logo = r#"
-    __    _ __
-   / /_  (_) /________  __
-  / __ \/ / __/ ___/ / / /
- / /_/ / / /_(__  ) /_/ /
-/_.___/_/\__/____/\__, /
-                 /____/   "#;
+        // Spider ASCII logo (from asset/ascii-logo/spider-50.txt)
+        let logo = r#"░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░█░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░█░░▓░░░░░░░░░░░░░█░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░█░░█░░░░░░░░░░█░░░░░░░░▒░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░█░░░░▓░▒░░░█░░░█░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░█░░▓░░░█░░█░░░█░░█░░░░░█░░░░░░░░░░
+░░░░░░░░░░▒░░░░░░█░░░████████░░░█░░░░░█░░░░░░░░░░░
+░░░░░░░░░░░██░░░░░░░░████████░░░░░░░██░░░░░░░░░░░░
+░░░░░░█░░░░░░░░███░░░░███████░░░░▒░░░░░░░░░█░░░░░░
+░░░░░░█░░░░░░░░░░░███████░██████░░░░░░░░░░░█░░░░░░
+░░░░░░░█░░░░░░░█░░░▓███████████░░░██░░░░░░█░░░░░░░
+░░░░░░░░░░░░░░░░░▒█████████████▓█░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░██░░░██████░█████░░░░█░░░░░░░░░░░░░░
+░░░░░░░░░░░░░█░░░░█░░░███████░░░█░░░░█░░░░░░░░░░░░
+░░░░░░░░░░░█░░░░░█░░░░░░░▓░░░░░░░█░░░░░█░░░░░░░░░░
+░░░░░░░░░░█░░░░░░█░░░░░░░░░░░░░░░█░░░░░█░░░░░░░░░░
+░░░░░░░░░░░░░░░░░▓░░░░░░░░░░░░░░░█░░░░░█░░░░░░░░░░
+░░░░░░░░░░░█░░░░█░░░░░░░░░░░░░░░░█░░░░░█░░░░░░░░░░
+░░░░░░░░░░░▓░░░░░█░░░░░░░░░░░░░░▓░░░░░█░░░░░░░░░░░
+░░░░░░░░░░░░░▓░░░░█░░░░░░░░░░░░▒░░░░▒░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░█░░░░░░░░░░░█░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░█░░░░░░░█░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░"#;
 
-        let version = "v0.1.0";
-        let tagline = "A minimal Vim-inspired terminal editor";
-
-        let quick_start = vec![
+        let instructions = vec![
             "",
-            "Quick Start",
-            "-----------",
-            "  :e <file>     Open a file",
-            "  :w            Save file",
-            "  :q            Quit",
-            "  :help         Show help",
+            "bitsy",
             "",
-            "Navigation",
-            "----------",
-            "  h j k l       Move cursor",
-            "  w b e         Word motions",
-            "  gg G          File start/end",
+            ":help       view help",
+            ":e <file>   open a file",
             "",
-            "Editing",
-            "-------",
-            "  i             Insert mode",
-            "  d             Delete",
-            "  y p           Yank/paste",
-            "  u             Undo",
-            "",
-            "Press any key to start editing...",
+            "this is a buffer and can be edited",
         ];
 
         // Build the landing page content
         let mut lines: Vec<String> = Vec::new();
 
-        // Calculate vertical centering
-        let logo_lines: Vec<&str> = logo.lines().collect();
-        let total_content_lines = logo_lines.len() + 2 + quick_start.len();
-        let top_padding = content_height.saturating_sub(total_content_lines) / 2;
-
-        // Add top padding
-        for _ in 0..top_padding {
-            lines.push(String::new());
-        }
-
         // Add logo (centered)
-        for logo_line in logo_lines {
-            let padding = (width as usize).saturating_sub(logo_line.len()) / 2;
+        for logo_line in logo.lines() {
+            let padding = (width as usize).saturating_sub(logo_line.chars().count()) / 2;
             lines.push(format!("{}{}", " ".repeat(padding), logo_line));
         }
 
-        // Add version and tagline (centered)
-        let version_line = format!("{} - {}", version, tagline);
-        let version_padding = (width as usize).saturating_sub(version_line.len()) / 2;
-        lines.push(format!("{}{}", " ".repeat(version_padding), version_line));
+        // Add blank line
         lines.push(String::new());
 
-        // Add quick start guide (centered)
-        for line in &quick_start {
+        // Add instructions (centered)
+        for line in &instructions {
             let padding = (width as usize).saturating_sub(line.len()) / 2;
             lines.push(format!("{}{}", " ".repeat(padding), line));
-        }
-
-        // Fill remaining space
-        while lines.len() < content_height {
-            lines.push(String::new());
         }
 
         // Insert content into buffer
@@ -292,28 +274,6 @@ impl Editor {
         self.current_buffer_mut().clear_modified();
         self.showing_landing_page = true;
         self.windows[0].cursor = Cursor::default();
-    }
-
-    fn clear_landing_page(&mut self) {
-        if self.showing_landing_page {
-            // Clear the buffer content
-            let line_count = self.current_buffer().line_count();
-            for i in (0..line_count).rev() {
-                let len = self.current_buffer().line_len(i);
-                self.current_buffer_mut().delete_range(i, 0, i, len);
-                if i > 0 {
-                    // Delete the newline at the end of previous line
-                    let prev_len = self.current_buffer().line_len(i.saturating_sub(1));
-                    if prev_len > 0 || self.current_buffer().line_count() > 1 {
-                        self.current_buffer_mut().delete_range(i.saturating_sub(1), prev_len, i.saturating_sub(1), prev_len);
-                    }
-                }
-            }
-            // Reset to empty buffer
-            self.buffers[0] = Buffer::new();
-            self.windows[0].cursor = Cursor::default();
-            self.showing_landing_page = false;
-        }
     }
 
     pub fn run(&mut self) -> Result<()> {
@@ -2306,29 +2266,29 @@ SEARCH
 
             // Mode switching
             Action::EnterInsertMode => {
-                self.clear_landing_page();
+                self.showing_landing_page = false;
                 self.mode = Mode::Insert;
             }
             Action::EnterInsertModeBeginning => {
-                self.clear_landing_page();
+                self.showing_landing_page = false;
                 self.current_window_mut().cursor.move_to_line_start();
                 self.mode = Mode::Insert;
             }
             Action::EnterInsertModeAppend => {
-                self.clear_landing_page();
+                self.showing_landing_page = false;
                 self.current_window_mut().cursor.move_right(1);
                 self.clamp_cursor();
                 self.mode = Mode::Insert;
             }
             Action::EnterInsertModeAppendEnd => {
-                self.clear_landing_page();
+                self.showing_landing_page = false;
                 let line = self.current_window().cursor.line;
                 let line_len = self.current_buffer().line_len(line);
                 self.current_window_mut().cursor.col = line_len;
                 self.mode = Mode::Insert;
             }
             Action::EnterInsertModeNewLineBelow => {
-                self.clear_landing_page();
+                self.showing_landing_page = false;
                 let line = self.current_window().cursor.line;
                 let line_len = self.current_buffer().line_len(line);
                 self.current_buffer_mut().insert_newline(line, line_len);
@@ -2337,14 +2297,14 @@ SEARCH
                 self.mode = Mode::Insert;
             }
             Action::EnterInsertModeNewLineAbove => {
-                self.clear_landing_page();
+                self.showing_landing_page = false;
                 let line = self.current_window().cursor.line;
                 self.current_buffer_mut().insert_newline(line, 0);
                 self.current_window_mut().cursor.col = 0;
                 self.mode = Mode::Insert;
             }
             Action::EnterReplaceMode => {
-                self.clear_landing_page();
+                self.showing_landing_page = false;
                 self.mode = Mode::Replace;
             }
             Action::EnterVisualMode => {
