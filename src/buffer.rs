@@ -200,6 +200,10 @@ impl Buffer {
         self.modified
     }
 
+    pub fn clear_modified(&mut self) {
+        self.modified = false;
+    }
+
     pub fn file_path(&self) -> Option<&Path> {
         self.file_path.as_deref()
     }

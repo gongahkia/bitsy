@@ -18,13 +18,16 @@ fn main() {
         }
     };
 
-    // Open file if specified
+    // Open file if specified, otherwise show landing page
     if args.len() > 1 {
         let filename = &args[1];
         if let Err(e) = editor.open(filename) {
             eprintln!("Failed to open file '{}': {}", filename, e);
             // Continue with empty buffer instead of exiting
         }
+    } else {
+        // No file specified, show the landing page
+        editor.show_landing_page();
     }
 
     // Run the editor

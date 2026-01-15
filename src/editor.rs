@@ -294,6 +294,28 @@ impl Editor {
         self.windows[0].cursor = Cursor::default();
     }
 
+    fn clear_landing_page(&mut self) {
+        if self.showing_landing_page {
+            // Clear the buffer content
+            let line_count = self.current_buffer().line_count();
+            for i in (0..line_count).rev() {
+                let len = self.current_buffer().line_len(i);
+                self.current_buffer_mut().delete_range(i, 0, i, len);
+                if i > 0 {
+                    // Delete the newline at the end of previous line
+                    let prev_len = self.current_buffer().line_len(i.saturating_sub(1));
+                    if prev_len > 0 || self.current_buffer().line_count() > 1 {
+                        self.current_buffer_mut().delete_range(i.saturating_sub(1), prev_len, i.saturating_sub(1), prev_len);
+                    }
+                }
+            }
+            // Reset to empty buffer
+            self.buffers[0] = Buffer::new();
+            self.windows[0].cursor = Cursor::default();
+            self.showing_landing_page = false;
+        }
+    }
+
     pub fn run(&mut self) -> Result<()> {
         loop {
             if self.needs_render {
@@ -848,7 +870,13 @@ impl Editor {
                 self.should_quit = true;
             }
             Command::Edit(filename) => {
-                if self.current_buffer().is_modified() {
+                // Clear landing page before checking modifications (landing page is not modified)
+                let was_landing_page = self.showing_landing_page;
+                if was_landing_page {
+                    self.showing_landing_page = false;
+                }
+
+                if self.current_buffer().is_modified() && !was_landing_page {
                     self.message = Some("No write since last change".to_string());
                 } else {
                     match Buffer::from_file(&filename) {
@@ -2278,24 +2306,29 @@ SEARCH
 
             // Mode switching
             Action::EnterInsertMode => {
+                self.clear_landing_page();
                 self.mode = Mode::Insert;
             }
             Action::EnterInsertModeBeginning => {
+                self.clear_landing_page();
                 self.current_window_mut().cursor.move_to_line_start();
                 self.mode = Mode::Insert;
             }
             Action::EnterInsertModeAppend => {
+                self.clear_landing_page();
                 self.current_window_mut().cursor.move_right(1);
                 self.clamp_cursor();
                 self.mode = Mode::Insert;
             }
             Action::EnterInsertModeAppendEnd => {
+                self.clear_landing_page();
                 let line = self.current_window().cursor.line;
                 let line_len = self.current_buffer().line_len(line);
                 self.current_window_mut().cursor.col = line_len;
                 self.mode = Mode::Insert;
             }
             Action::EnterInsertModeNewLineBelow => {
+                self.clear_landing_page();
                 let line = self.current_window().cursor.line;
                 let line_len = self.current_buffer().line_len(line);
                 self.current_buffer_mut().insert_newline(line, line_len);
@@ -2304,12 +2337,14 @@ SEARCH
                 self.mode = Mode::Insert;
             }
             Action::EnterInsertModeNewLineAbove => {
+                self.clear_landing_page();
                 let line = self.current_window().cursor.line;
                 self.current_buffer_mut().insert_newline(line, 0);
                 self.current_window_mut().cursor.col = 0;
                 self.mode = Mode::Insert;
             }
             Action::EnterReplaceMode => {
+                self.clear_landing_page();
                 self.mode = Mode::Replace;
             }
             Action::EnterVisualMode => {
