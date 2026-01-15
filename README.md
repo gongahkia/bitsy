@@ -1,4 +1,4 @@
-[![](https://img.shields.io/badge/bisty_1.0.0-passing-green)](https://github.com/gongahkia/bitsy/releases/tag/1.0.0)
+[![](https://img.shields.io/badge/bitsy_1.0.0-passing-green)](https://github.com/gongahkia/bitsy/releases/tag/1.0.0)
 
 # `Bitsy`
 
