@@ -1084,10 +1084,6 @@ note: this is a help buffer - :q to return, or edit as you like!
         Ok(())
     }
 
-    fn get_general_help(&self) -> String {
-        "Bitsy - Vim-compatible text editor | :help [topic] for more | :q to quit".to_string()
-    }
-
     fn get_help_topic(&self, topic: &str) -> String {
         match topic {
             "motions" | "movement" => {
