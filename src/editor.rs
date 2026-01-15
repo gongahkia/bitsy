@@ -79,6 +79,10 @@ pub struct Editor {
     active_window: usize,
     needs_render: bool,
     showing_landing_page: bool,
+    viewing_help: bool,
+    help_return_buffer: Option<Buffer>,
+    help_return_cursor: Option<Cursor>,
+    was_showing_landing_page: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -166,6 +170,10 @@ impl Editor {
             active_window: 0,
             needs_render: true,
             showing_landing_page: false,
+            viewing_help: false,
+            help_return_buffer: None,
+            help_return_cursor: None,
+            was_showing_landing_page: false,
         })
     }
 
@@ -788,7 +796,18 @@ impl Editor {
                 }
             }
             Command::Quit => {
-                if self.current_buffer().is_modified() {
+                // If viewing help, return to previous buffer instead of quitting
+                if self.viewing_help {
+                    if let Some(return_buffer) = self.help_return_buffer.take() {
+                        self.buffers[0] = return_buffer;
+                        if let Some(return_cursor) = self.help_return_cursor.take() {
+                            self.windows[0].cursor = return_cursor;
+                        }
+                        self.showing_landing_page = self.was_showing_landing_page;
+                        self.viewing_help = false;
+                        self.message = Some("Returned from help".to_string());
+                    }
+                } else if self.current_buffer().is_modified() {
                     if self.current_buffer().file_path().is_none() {
                         self.message = Some("No file name. Use :w <filename> to save.".to_string());
                     } else {
@@ -930,14 +949,17 @@ impl Editor {
                 }
             }
             Command::Help(topic) => {
-                let help_text = if let Some(ref t) = topic {
-                    self.get_help_topic(t)
+                if let Some(ref t) = topic {
+                    // Show topic-specific help in message bar
+                    let help_text = self.get_help_topic(t);
+                    self.message = Some(help_text);
                 } else {
-                    self.get_general_help()
-                };
-                self.message = Some(help_text);
-                if topic.is_none() {
-                    // Show all keybinds in the buffer
+                    // Save current buffer state before showing help
+                    self.help_return_buffer = Some(self.buffers[0].clone());
+                    self.help_return_cursor = Some(self.windows[0].cursor);
+                    self.was_showing_landing_page = self.showing_landing_page;
+
+                    // Create help buffer with full keybinds
                     let help_text = r#"Bitsy Keybinds
 
 NORMAL MODE
@@ -971,7 +993,7 @@ VISUAL MODE
 
 COMMANDS
   :w              Write file
-  :q              Quit
+  :q              Quit (or return from help)
   :e <file>       Edit file
   :set <opt>      Set option
   :help           Show help
@@ -984,28 +1006,13 @@ SEARCH
   n/N             Next/prev match
   * #             Search word under cursor
 
-("#;
-                    let buf = self.current_buffer_mut();
-                    // Clear buffer
-                    let line_count = buf.line_count();
-                    for i in (0..line_count).rev() {
-                        let len = buf.line_len(i);
-                        buf.delete_range(i, 0, i, len);
-                    }
-                    // Insert help text
-                    for (i, line) in help_text.lines().enumerate() {
-                        if i == 0 {
-                            for (j, ch) in line.chars().enumerate() {
-                                buf.insert_char(0, j, ch);
-                            }
-                        } else {
-                            buf.insert_newline(i - 1, buf.line_len(i - 1));
-                            for (j, ch) in line.chars().enumerate() {
-                                buf.insert_char(i, j, ch);
-                            }
-                        }
-                    }
-                    self.message = Some("Help loaded into buffer".to_string());
+note: this is a help buffer - :q to return, or edit as you like!
+"#;
+                    self.buffers[0] = Buffer::from_string(help_text);
+                    self.windows[0].cursor = Cursor::default();
+                    self.viewing_help = true;
+                    self.showing_landing_page = false;
+                    self.message = Some(":q to return to previous buffer".to_string());
                 }
             }
             Command::BufferNext => {
