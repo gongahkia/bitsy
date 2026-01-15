@@ -887,8 +887,6 @@ NORMAL MODE
 VISUAL MODE
   h/j/k/l         Move selection
   d/y             Delete/yank selection
-  p               Paste over selection
-  v/V             Toggle visual/visual line mode
   ESC             Exit visual mode
 
 COMMANDS
@@ -1006,7 +1004,7 @@ SEARCH
     fn get_help_topic(&self, topic: &str) -> String {
         match topic {
             "motions" | "movement" => {
-                "Motions: hjkl (left/down/up/right), w/b/e (word), gg/G (file start/end), %/0/$ (line), f/F/t/T (find char), /? (search)".to_string()
+                "Motions: hjkl (left/down/up/right), w/b/e (word), gg/G (file start/end), %/0/$ (line), /? (search)".to_string()
             }
             "operators" | "editing" => {
                 "Operators: d (delete), c (change), y (yank), p/P (paste), J (join), u (undo), . (repeat), >/< (indent), = (auto-indent)".to_string()
