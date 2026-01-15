@@ -1,15 +1,5 @@
 # Bitsy (Text Editor PRD) - Daily Driver Vim-Compatible CLI Editor
 # Target: Production-ready text editor with extended Vim features
-# Stack: Rust (recommended) 
-# Max Implementation: 150 tasks
-
-## Phase 0
-(C) 2026-01-12 Write tests for vertical motions (:line, %) +testing @implementation
-(C) 2026-01-12 Write tests for search motions (/, ?, n, N, *, #) +testing @implementation
-(C) 2026-01-12 Write tests for text object motions (aw, iw, ap, ip, etc) +testing @implementation  
-(C) 2026-01-12 Write tests for :substitute command +testing @implementation
-(C) 2026-01-12 Write tests for :set command +testing @implementation
-(C) 2026-01-12 Write tests for register selection syntax +testing @implementation
 
 ## Phase 1
 (A) Now have it such that after opening a file, it immediately launches a localhost markdown preview in a browser and make it split screen if possible
@@ -24,26 +14,12 @@
 (C) 2026-01-09 Build large file handling optimizations (lazy loading) +files @implementation
 (C) 2026-01-09 Implement safe file saving (atomic write with temp file) +files @implementation
 
-## Phase 14: Undo/Redo System (5 tasks)
-(A) 2026-01-09 Design undo tree data structure (support branching undo) +undo @design
-(B) 2026-01-09 Create undo tree traversal (g-, g+, :earlier, :later) +undo @implementation
-(C) 2026-01-09 Build undo tree visualizer (:undolist) +undo @implementation
-
-## Phase 15: Search & Replace (8 tasks)
-(A) 2026-01-09 Build regex engine integration (Rust: regex crate) +search @implementation
-(A) 2026-01-09 Implement search highlighting +search @implementation
-(B) 2026-01-09 Create incremental search (search as you type) +search @implementation
-(B) 2026-01-09 Build case-sensitive/insensitive search toggle +search @implementation
-(B) 2026-01-09 Implement substitute command with confirmation (:%s///gc) +search @implementation
-(C) 2026-01-09 Create search history navigation +search @implementation
-
-## Phase 12: Buffer Management (6 tasks)
-(A) 2026-01-09 Create buffer list data structure +buffers @implementation
-(A) 2026-01-09 Implement buffer switching (:buffer, :bnext, :bprev) +buffers @implementation
-(A) 2026-01-09 Build buffer creation and deletion (:enew, :bdelete, :bwipeout) +buffers @implementation
-(B) 2026-01-09 Create buffer list viewer (:ls, :buffers) +buffers @implementation
-(B) 2026-01-09 Implement modified buffer warnings on quit +buffers @implementation
-(C) 2026-01-09 Build alternate file switching (Ctrl-^, :e #) +buffers @implementation
+## Phase 18: Fuzzy Finder (6 tasks)
+(B) 2026-01-09 Implement fuzzy matching algorithm (fzf-style) +fuzzy @implementation
+(B) 2026-01-09 Create file fuzzy finder (Ctrl-p or :Files) +fuzzy @implementation
+(B) 2026-01-09 Build buffer fuzzy finder (:Buffers) +fuzzy @implementation
+(B) 2026-01-09 Implement grep/text search in files (:Rg, :Grep) +fuzzy @implementation
+(C) 2026-01-09 Create fuzzy finder preview pane +fuzzy @implementation
 
 ## Phase 16: Syntax Highlighting (10 tasks)
 (A) 2026-01-09 Integrate tree-sitter library +syntax @implementation
@@ -56,13 +32,6 @@
 (C) 2026-01-09 Build syntax region folding (@fold, za, zc, zo, zM, zR) +syntax @implementation
 (C) 2026-01-09 Implement rainbow brackets/parentheses +syntax @implementation
 (C) 2026-01-09 Create custom language syntax loader +syntax @implementation
-
-## Phase 18: Fuzzy Finder (6 tasks)
-(B) 2026-01-09 Implement fuzzy matching algorithm (fzf-style) +fuzzy @implementation
-(B) 2026-01-09 Create file fuzzy finder (Ctrl-p or :Files) +fuzzy @implementation
-(B) 2026-01-09 Build buffer fuzzy finder (:Buffers) +fuzzy @implementation
-(B) 2026-01-09 Implement grep/text search in files (:Rg, :Grep) +fuzzy @implementation
-(C) 2026-01-09 Create fuzzy finder preview pane +fuzzy @implementation
 
 ## Phase 21: Configuration (5 tasks)
 (B) 2026-01-09 Implement theme/color scheme loading +config @implementation
@@ -88,6 +57,12 @@
 (C) 2026-01-09 Optimize memory usage and reduce allocations +performance @optimization
 
 ## Phase 23: Testing & Documentation (9 tasks)
+(B) 2026-01-12 Write tests for vertical motions (:line, %) +testing @implementation
+(B) 2026-01-12 Write tests for search motions (/, ?, n, N, *, #) +testing @implementation
+(B) 2026-01-12 Write tests for text object motions (aw, iw, ap, ip, etc) +testing @implementation  
+(B) 2026-01-12 Write tests for :substitute command +testing @implementation
+(B) 2026-01-12 Write tests for :set command +testing @implementation
+(B) 2026-01-12 Write tests for register selection syntax +testing @implementation
 (B) 2026-01-09 Write unit tests for buffer operations +testing @implementation
 (B) 2026-01-09 Write unit tests for vim motions and operators +testing @implementation
 (B) 2026-01-09 Write integration tests for command mode +testing @implementation
