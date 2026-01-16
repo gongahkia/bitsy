@@ -99,9 +99,21 @@ impl Buffer {
         let normalized = decoded_content.replace("\r\n", "\n").replace('\r', "\n");
         let rope = Rope::from_str(&normalized);
 
+        let backup_path = if let Some(file_name) = path.as_ref().file_name().and_then(|n| n.to_str())
+        {
+            let mut backup_file_name = ".".to_string();
+            backup_file_name.push_str(file_name);
+            backup_file_name.push_str(".swp");
+            let backup_path = path.as_ref().with_file_name(backup_file_name);
+            Some(backup_path)
+        } else {
+            None
+        };
+
         Ok(Self {
             rope,
             file_path: Some(path.as_ref().to_path_buf()),
+            backup_path,
             modified: false,
             line_ending,
             marks: HashMap::new(),
@@ -152,7 +164,8 @@ impl Buffer {
                 fs::write(path, content_with_endings)?;
             }
 
-            self.modified = false;
+            self.set_modified(false);
+            self.remove_backup();
             Ok(())
         } else {
             Err(Error::EditorError("No file path set".to_string()))
@@ -169,7 +182,7 @@ impl Buffer {
             let line_start = self.rope.line_to_char(line);
             let insert_pos = line_start + col.min(self.line_len(line));
             self.rope.insert_char(insert_pos, ch);
-            self.modified = true;
+            self.set_modified(true);
         }
     }
 
@@ -178,7 +191,7 @@ impl Buffer {
             let line_start = self.rope.line_to_char(line);
             let insert_pos = line_start + col.min(self.line_len(line));
             self.rope.insert_char(insert_pos, '\n');
-            self.modified = true;
+            self.set_modified(true);
         }
     }
 
@@ -187,7 +200,7 @@ impl Buffer {
             let line_start = self.rope.line_to_char(line);
             let delete_pos = line_start + col;
             self.rope.remove(delete_pos..delete_pos + 1);
-            self.modified = true;
+            self.set_modified(true);
         }
     }
 
@@ -206,7 +219,7 @@ impl Buffer {
 
         if start_char <= end_char && end_char <= self.rope.len_chars() {
             self.rope.remove(start_char..end_char);
-            self.modified = true;
+            self.set_modified(true);
         }
     }
 
@@ -262,8 +275,51 @@ impl Buffer {
     }
 
     pub fn set_line_ending(&mut self, line_ending: LineEnding) {
+        self.set_modified(true);
         self.line_ending = line_ending;
-        self.modified = true;
+    }
+
+    fn create_backup(&self) -> Result<()> {
+        if let Some(ref backup_path) = self.backup_path {
+            // The content written to the backup should be the same as what's saved.
+            let content = self.rope.to_string();
+            let content_with_endings = match self.line_ending {
+                LineEnding::LF => content,
+                LineEnding::CRLF => content.replace('\n', "\r\n"),
+                LineEnding::CR => content.replace('\n', "\r"),
+            };
+
+            if let Some(encoding) = self.encoding {
+                if encoding != encoding_rs::UTF_8 {
+                    let (encoded_bytes, _, _) = encoding.encode(&content_with_endings);
+                    fs::write(backup_path, encoded_bytes)?;
+                } else {
+                    fs::write(backup_path, content_with_endings)?;
+                }
+            } else {
+                fs::write(backup_path, content_with_endings)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn remove_backup(&self) {
+        if let Some(ref backup_path) = self.backup_path {
+            if fs::metadata(backup_path).is_ok() {
+                let _ = fs::remove_file(backup_path);
+            }
+        }
+    }
+
+    fn set_modified(&mut self, is_modified: bool) {
+        if is_modified && !self.modified {
+            // First modification
+            if let Err(e) = self.create_backup() {
+                // What to do on error? Log it for now.
+                log::error!("Failed to create backup file: {}", e);
+            }
+        }
+        self.modified = is_modified;
     }
 }
 

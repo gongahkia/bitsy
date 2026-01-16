@@ -3610,12 +3610,8 @@ note: this is a help buffer - :q to return, or edit as you like!
                 }
             } else {
                 // Render empty line indicator
-                if padding > 0 {
-                    self.terminal.print(&" ".repeat(padding))?;
-                }
                 if line_num_width > 0 {
-                    let l_padding = " ".repeat(line_num_width.saturating_sub(1));
-                    self.terminal.print_colored(&l_padding, Color::DarkGrey)?;
+                    self.terminal.print(&" ".repeat(line_num_width))?;
                 }
                 self.terminal.print_colored("~", Color::Blue)?;
             }
@@ -3882,6 +3878,9 @@ note: this is a help buffer - :q to return, or edit as you like!
 impl Drop for Editor {
     fn drop(&mut self) {
         self.stop_markdown_preview();
+        for buffer in &self.buffers {
+            buffer.remove_backup();
+        }
         // The terminal is restored in its own Drop implementation
     }
 }
