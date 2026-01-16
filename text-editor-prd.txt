@@ -4,7 +4,6 @@
 ## Phase 1
 
 ## Phase 13: File Operations (7 tasks)
-(C) 2026-01-09 Implement safe file saving (atomic write with temp file) +files @implementation
 
 ## Phase 18: Fuzzy Finder (6 tasks)
 (B) 2026-01-09 Implement fuzzy matching algorithm (fzf-style) +fuzzy @implementation
