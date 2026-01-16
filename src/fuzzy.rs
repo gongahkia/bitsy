@@ -113,8 +113,12 @@ impl FuzzyMatcher {
             let curr_char = candidate[idx];
 
             // Check for word boundary
-            if prev_char == '/' || prev_char == '_' || prev_char == '-'
-                || prev_char == '.' || prev_char == ' ' {
+            if prev_char == '/'
+                || prev_char == '_'
+                || prev_char == '-'
+                || prev_char == '.'
+                || prev_char == ' '
+            {
                 score += 16;
             }
             // CamelCase boundary

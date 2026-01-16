@@ -1,14 +1,14 @@
 // Register system for yank, delete, and clipboard operations
 
-use std::collections::HashMap;
 use arboard::Clipboard;
 use crossterm::event::KeyEvent;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RegisterContent {
-    Char(String),      // Character-wise content
-    Line(Vec<String>), // Line-wise content
-    Block(Vec<String>), // Block-wise content
+    Char(String),         // Character-wise content
+    Line(Vec<String>),    // Line-wise content
+    Block(Vec<String>),   // Block-wise content
     Macro(Vec<KeyEvent>), // Macro content
 }
 
@@ -29,8 +29,8 @@ pub struct RegisterManager {
     last_yank: RegisterContent,
     last_delete: RegisterContent,
     clipboard: Option<Clipboard>,
-    filename: String, // %
-    last_command: String, // :
+    filename: String,      // %
+    last_command: String,  // :
     last_inserted: String, // .
 }
 
@@ -70,8 +70,7 @@ impl RegisterManager {
                 if let Some(cb) = &mut self.clipboard {
                     let _ = cb.set_text(content.as_string());
                 }
-            }
-            else {
+            } else {
                 self.registers.insert(reg, content.clone());
             }
         }
@@ -152,7 +151,7 @@ impl RegisterManager {
         for (k, v) in named {
             results.push((*k, v.as_string()));
         }
-        
+
         // Trim content for display (first line/first 50 chars)
         for (_, content) in &mut results {
             if let Some(idx) = content.find('\n') {

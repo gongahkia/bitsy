@@ -130,8 +130,16 @@ impl Buffer {
         // For large files, only load the first N lines (preview) and store the rest
         let (content_to_load, large_file_tail) = if is_large {
             let lines: Vec<&str> = normalized.lines().collect();
-            let preview_lines: Vec<&str> = lines.iter().take(config.large_file_preview_lines).cloned().collect();
-            let tail_lines: Vec<&str> = lines.iter().skip(config.large_file_preview_lines).cloned().collect();
+            let preview_lines: Vec<&str> = lines
+                .iter()
+                .take(config.large_file_preview_lines)
+                .cloned()
+                .collect();
+            let tail_lines: Vec<&str> = lines
+                .iter()
+                .skip(config.large_file_preview_lines)
+                .cloned()
+                .collect();
 
             let mut preview = preview_lines.join("\n");
             if !preview.is_empty() && !tail_lines.is_empty() {
@@ -156,15 +164,16 @@ impl Buffer {
 
         let rope = Rope::from_str(&content_to_load);
 
-        let backup_path = if let Some(file_name) = path.as_ref().file_name().and_then(|n| n.to_str()) {
-            let mut backup_file_name = ".".to_string();
-            backup_file_name.push_str(file_name);
-            backup_file_name.push_str(".swp");
-            let backup_path = path.as_ref().with_file_name(backup_file_name);
-            Some(backup_path)
-        } else {
-            None
-        };
+        let backup_path =
+            if let Some(file_name) = path.as_ref().file_name().and_then(|n| n.to_str()) {
+                let mut backup_file_name = ".".to_string();
+                backup_file_name.push_str(file_name);
+                backup_file_name.push_str(".swp");
+                let backup_path = path.as_ref().with_file_name(backup_file_name);
+                Some(backup_path)
+            } else {
+                None
+            };
 
         Ok(Self {
             rope,
@@ -296,12 +305,18 @@ impl Buffer {
         }
     }
 
-    pub fn delete_range(&mut self, start_line: usize, start_col: usize, end_line: usize, end_col: usize) {
+    pub fn delete_range(
+        &mut self,
+        start_line: usize,
+        start_col: usize,
+        end_line: usize,
+        end_col: usize,
+    ) {
         if self.read_only {
             return;
         }
         let start_char = self.rope.line_to_char(start_line) + start_col;
-        
+
         let end_char = if end_col == usize::MAX {
             if end_line + 1 < self.rope.len_lines() {
                 self.rope.line_to_char(end_line + 1)

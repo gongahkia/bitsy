@@ -50,15 +50,13 @@ impl Config {
     pub fn load_from_file(path: &str) -> Self {
         let default_config = Self::new();
         match fs::read_to_string(path) {
-            Ok(content) => {
-                match toml::from_str(&content) {
-                    Ok(config) => config,
-                    Err(e) => {
-                        log::warn!("Failed to parse config file: {}", e);
-                        default_config
-                    }
+            Ok(content) => match toml::from_str(&content) {
+                Ok(config) => config,
+                Err(e) => {
+                    log::warn!("Failed to parse config file: {}", e);
+                    default_config
                 }
-            }
+            },
             Err(_) => default_config,
         }
     }
@@ -78,7 +76,9 @@ impl Config {
                 Ok(())
             }
             "norelativenumber" | "nornu" => {
-                if self.line_numbers == LineNumberMode::Relative || self.line_numbers == LineNumberMode::RelativeAbsolute {
+                if self.line_numbers == LineNumberMode::Relative
+                    || self.line_numbers == LineNumberMode::RelativeAbsolute
+                {
                     self.line_numbers = LineNumberMode::Absolute;
                 }
                 Ok(())
@@ -135,7 +135,7 @@ impl Config {
                     Err("tabstop requires a value".to_string())
                 }
             }
-            _ => Err(format!("Unknown option: {}", option))
+            _ => Err(format!("Unknown option: {}", option)),
         }
     }
 

@@ -64,17 +64,17 @@ pub struct Editor {
     last_change: Option<(Action, usize)>, // Last change for dot repeat (action, count)
     search_buffer: String,
     search_pattern: Option<String>,
-    search_forward: bool, // Direction of last search
-    substitute_preview_pattern: Option<String>, // Pattern to highlight during :s/ command
+    search_forward: bool,                             // Direction of last search
+    substitute_preview_pattern: Option<String>,       // Pattern to highlight during :s/ command
     substitute_preview_range: Option<(usize, usize)>, // Line range for substitute preview (start, end)
     visual_cmd_range: Option<(usize, usize)>, // Line range from visual mode when entering command mode
     pending_text_object: Option<TextObjectModifier>, // Waiting for text object (a or i)
-    pending_register: Option<char>, // Register selected with " prefix
-    waiting_for_register: bool, // True when " was just pressed
+    pending_register: Option<char>,           // Register selected with " prefix
+    waiting_for_register: bool,               // True when " was just pressed
     global_marks: HashMap<char, (usize, usize)>, // Global mark positions (line, col)
-    change_list: Vec<(usize, usize)>, // List of change positions
-    change_index: usize, // Current position in change list
-    waiting_for_mark: Option<MarkAction>, // Waiting for mark character after m, ', or `
+    change_list: Vec<(usize, usize)>,         // List of change positions
+    change_index: usize,                      // Current position in change list
+    waiting_for_mark: Option<MarkAction>,     // Waiting for mark character after m, ', or `
     command_history: Vec<String>,
     history_index: Option<usize>,
     completion_candidates: Vec<String>,
@@ -107,9 +107,9 @@ pub struct Editor {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum MarkAction {
-    Set,        // m (set mark)
-    Jump,       // ' (jump to line)
-    JumpExact,  // ` (jump to exact position)
+    Set,       // m (set mark)
+    Jump,      // ' (jump to line)
+    JumpExact, // ` (jump to exact position)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -120,10 +120,10 @@ enum TextObjectModifier {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FindDirection {
-    Forward,    // f
-    Backward,   // F
-    Till,       // t
-    TillBack,   // T
+    Forward,  // f
+    Backward, // F
+    Till,     // t
+    TillBack, // T
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -140,7 +140,7 @@ impl Editor {
 
         // Reserve 2 lines: 1 for status, 1 for command/message
         let viewport_height = (height as usize).saturating_sub(2);
-        
+
         let window = Window::new(0, width as usize, viewport_height);
 
         let config = Config::load_from_file("editor.toml");
@@ -211,7 +211,7 @@ impl Editor {
     fn current_buffer(&self) -> &Buffer {
         &self.buffers[self.windows[self.active_window].buffer_index]
     }
-    
+
     fn current_buffer_mut(&mut self) -> &mut Buffer {
         let buffer_idx = self.windows[self.active_window].buffer_index;
         &mut self.buffers[buffer_idx]
@@ -344,7 +344,6 @@ impl Editor {
         Ok(())
     }
 
-
     pub fn show_landing_page(&mut self) {
         let (width, _height) = self.terminal.size();
 
@@ -458,7 +457,9 @@ impl Editor {
                 self.terminal.update_size()?;
                 let viewport_height = (height as usize).saturating_sub(2);
                 // For now, resize only active window. In future with splits, we need to recalculate layout.
-                self.windows[self.active_window].viewport.resize(width as usize, viewport_height);
+                self.windows[self.active_window]
+                    .viewport
+                    .resize(width as usize, viewport_height);
             }
             _ => {}
         }
@@ -492,10 +493,18 @@ impl Editor {
         // Record key if recording macro
         if self.recording_register.is_some() {
             // Don't record 'q' if it's going to stop recording
-            if key.code == KeyCode::Char('q') && self.mode == Mode::Normal && self.pending_operator == PendingOperator::None && self.pending_key.is_none() && self.pending_text_object.is_none() && self.waiting_for_mark.is_none() && !self.waiting_for_register {
+            if key.code == KeyCode::Char('q')
+                && self.mode == Mode::Normal
+                && self.pending_operator == PendingOperator::None
+                && self.pending_key.is_none()
+                && self.pending_text_object.is_none()
+                && self.waiting_for_mark.is_none()
+                && !self.waiting_for_register
+            {
                 // Stop recording
                 if let Some(reg) = self.recording_register {
-                    self.registers.set(Some(reg), RegisterContent::Macro(self.macro_buffer.clone()));
+                    self.registers
+                        .set(Some(reg), RegisterContent::Macro(self.macro_buffer.clone()));
                     self.message = Some(format!("Recorded macro to @{}", reg));
                 }
                 self.recording_register = None;
@@ -522,7 +531,8 @@ impl Editor {
                         MarkAction::Set => {
                             if ('a'..='z').contains(&c) {
                                 let cursor = self.current_window().cursor;
-                                self.current_buffer_mut().set_mark(c, (cursor.line, cursor.col));
+                                self.current_buffer_mut()
+                                    .set_mark(c, (cursor.line, cursor.col));
                             } else if ('A'..='Z').contains(&c) {
                                 let cursor = self.current_window().cursor;
                                 self.global_marks.insert(c, (cursor.line, cursor.col));
@@ -568,7 +578,10 @@ impl Editor {
             }
 
             // Check for m, ', ` to start mark operations
-            if self.mode == Mode::Normal && self.waiting_for_mark.is_none() && self.pending_operator == PendingOperator::None {
+            if self.mode == Mode::Normal
+                && self.waiting_for_mark.is_none()
+                && self.pending_operator == PendingOperator::None
+            {
                 match key.code {
                     KeyCode::Char('m') => {
                         self.waiting_for_mark = Some(MarkAction::Set);
@@ -649,7 +662,7 @@ impl Editor {
                     self.pending_key = None;
                     return Ok(());
                 }
-                
+
                 let sequence_action = self.map_key_sequence(prefix, key);
                 self.pending_key = None; // Clear pending key after processing
                 sequence_action
@@ -668,7 +681,9 @@ impl Editor {
             // Handle text object composition (for operators like daw, ci", etc.)
             if self.pending_operator != PendingOperator::None {
                 // Check if user is entering a text object (a or i)
-                if matches!(key.code, KeyCode::Char('a') | KeyCode::Char('i')) && self.pending_text_object.is_none() {
+                if matches!(key.code, KeyCode::Char('a') | KeyCode::Char('i'))
+                    && self.pending_text_object.is_none()
+                {
                     self.pending_text_object = if key.code == KeyCode::Char('a') {
                         Some(TextObjectModifier::Around)
                     } else {
@@ -688,7 +703,10 @@ impl Editor {
             }
 
             // Reset count after executing action (unless waiting for more input)
-            if self.pending_operator == PendingOperator::None && self.pending_key.is_none() && self.pending_text_object.is_none() {
+            if self.pending_operator == PendingOperator::None
+                && self.pending_key.is_none()
+                && self.pending_text_object.is_none()
+            {
                 self.count = 0;
             }
         }
@@ -698,18 +716,18 @@ impl Editor {
     fn map_key_sequence(&self, prefix: char, key: KeyEvent) -> Action {
         if prefix == 'g' {
             match key.code {
-                KeyCode::Char('g') => Action::MoveFileStart, // gg
-                KeyCode::Char('e') => Action::MoveWordEndBack, // ge
-                KeyCode::Char('E') => Action::MoveWordEndBackBig, // gE
-                KeyCode::Char('_') => Action::MoveLineEndNonBlank, // g_
+                KeyCode::Char('g') => Action::MoveFileStart,        // gg
+                KeyCode::Char('e') => Action::MoveWordEndBack,      // ge
+                KeyCode::Char('E') => Action::MoveWordEndBackBig,   // gE
+                KeyCode::Char('_') => Action::MoveLineEndNonBlank,  // g_
                 KeyCode::Char('0') => Action::MoveLineStartDisplay, // g0
-                KeyCode::Char('$') => Action::MoveLineEndDisplay, // g$
-                KeyCode::Char('J') => Action::JoinNoSpace, // gJ
-                KeyCode::Char('u') => Action::MakeLowercase, // gu
-                KeyCode::Char('U') => Action::MakeUppercase, // gU
-                KeyCode::Char('~') => Action::ToggleCase, // g~
-                KeyCode::Char(';') => Action::JumpToChangeNext, // g;
-                KeyCode::Char(',') => Action::JumpToChangePrev, // g,
+                KeyCode::Char('$') => Action::MoveLineEndDisplay,   // g$
+                KeyCode::Char('J') => Action::JoinNoSpace,          // gJ
+                KeyCode::Char('u') => Action::MakeLowercase,        // gu
+                KeyCode::Char('U') => Action::MakeUppercase,        // gU
+                KeyCode::Char('~') => Action::ToggleCase,           // g~
+                KeyCode::Char(';') => Action::JumpToChangeNext,     // g;
+                KeyCode::Char(',') => Action::JumpToChangePrev,     // g,
                 _ => Action::None,
             }
         } else if prefix == 'r' {
@@ -732,16 +750,25 @@ impl Editor {
 
         if input.starts_with("e ") || input.starts_with("edit ") {
             // File completion
-            let prefix = if let Some(p) = input.strip_prefix("e ") { p } else { input.strip_prefix("edit ").unwrap() };
+            let prefix = if let Some(p) = input.strip_prefix("e ") {
+                p
+            } else {
+                input.strip_prefix("edit ").unwrap()
+            };
             // Simple handling for now: just list current directory
-            let dir = "."; 
-            
+            let dir = ".";
+
             if let Ok(entries) = fs::read_dir(dir) {
                 for entry in entries.flatten() {
                     if let Ok(name) = entry.file_name().into_string() {
                         if name.starts_with(prefix) {
-                             let cmd_prefix = if input.starts_with("e ") { "e " } else { "edit " };
-                             self.completion_candidates.push(format!("{}{}", cmd_prefix, name));
+                            let cmd_prefix = if input.starts_with("e ") {
+                                "e "
+                            } else {
+                                "edit "
+                            };
+                            self.completion_candidates
+                                .push(format!("{}{}", cmd_prefix, name));
                         }
                     }
                 }
@@ -749,11 +776,32 @@ impl Editor {
         } else if !input.contains(' ') {
             // Command completion
             let commands = vec![
-                "w", "write", "q", "quit", "wq", "x", "q!", "e", "edit", 
-                "bn", "bnext", "bp", "bprevious", "bd", "bdelete", "ls", "buffers",
-                "sp", "split", "vsp", "vsplit", "close", "help", "set"
+                "w",
+                "write",
+                "q",
+                "quit",
+                "wq",
+                "x",
+                "q!",
+                "e",
+                "edit",
+                "bn",
+                "bnext",
+                "bp",
+                "bprevious",
+                "bd",
+                "bdelete",
+                "ls",
+                "buffers",
+                "sp",
+                "split",
+                "vsp",
+                "vsplit",
+                "close",
+                "help",
+                "set",
             ];
-            
+
             for cmd in commands {
                 if cmd.starts_with(input) {
                     self.completion_candidates.push(cmd.to_string());
@@ -798,7 +846,8 @@ impl Editor {
                 if self.history_index.is_none() {
                     // Start navigating from end
                     self.history_index = Some(self.command_history.len() - 1);
-                    self.command_buffer = self.command_history[self.command_history.len() - 1].clone();
+                    self.command_buffer =
+                        self.command_history[self.command_history.len() - 1].clone();
                 } else {
                     // Move up (backwards) in history
                     let idx = self.history_index.unwrap();
@@ -954,7 +1003,8 @@ impl Editor {
     }
 
     fn execute_command(&mut self) -> Result<()> {
-        self.registers.update_last_command(self.command_buffer.clone());
+        self.registers
+            .update_last_command(self.command_buffer.clone());
         let cmd = parse_command(&self.command_buffer)?;
 
         match cmd {
@@ -993,7 +1043,8 @@ impl Editor {
                     if self.current_buffer().file_path().is_none() {
                         self.message = Some("No file name. Use :w <filename> to save.".to_string());
                     } else {
-                        self.message = Some("No write since last change (use :q! to force)".to_string());
+                        self.message =
+                            Some("No write since last change (use :q! to force)".to_string());
                     }
                 } else {
                     self.should_quit = true;
@@ -1032,7 +1083,8 @@ impl Editor {
                 } else {
                     match Buffer::from_file(&filename, &self.config) {
                         Ok(new_buffer) => {
-                            self.buffers[self.windows[self.active_window].buffer_index] = new_buffer;
+                            self.buffers[self.windows[self.active_window].buffer_index] =
+                                new_buffer;
                             self.windows[self.active_window].cursor = Cursor::default();
                             self.message = Some(format!("Opened {}", filename));
                         }
@@ -1047,11 +1099,17 @@ impl Editor {
                 // Convert 1-indexed to 0-indexed
                 let target_line = line_num.saturating_sub(1);
                 let line_count = self.current_buffer().line_count();
-                self.current_window_mut().cursor.line = target_line.min(line_count.saturating_sub(1));
+                self.current_window_mut().cursor.line =
+                    target_line.min(line_count.saturating_sub(1));
                 self.current_window_mut().cursor.col = 0;
                 self.clamp_cursor();
             }
-            Command::Substitute { pattern, replacement, global, range } => {
+            Command::Substitute {
+                pattern,
+                replacement,
+                global,
+                range,
+            } => {
                 self.save_undo_state();
                 let current_line = self.current_window().cursor.line;
                 let line_count = self.current_buffer().line_count();
@@ -1066,7 +1124,10 @@ impl Editor {
                     (start, end)
                 } else if let Some((vs, ve)) = self.visual_cmd_range {
                     // Use visual selection range if available
-                    (vs.min(line_count.saturating_sub(1)), ve.min(line_count.saturating_sub(1)))
+                    (
+                        vs.min(line_count.saturating_sub(1)),
+                        ve.min(line_count.saturating_sub(1)),
+                    )
                 } else {
                     // No range, use current line
                     (current_line, current_line)
@@ -1077,12 +1138,14 @@ impl Editor {
 
                 let mut total_count = 0;
                 for line in start_line..=end_line {
-                    total_count += self.execute_substitute_line(line, &pattern, &replacement, global);
+                    total_count +=
+                        self.execute_substitute_line(line, &pattern, &replacement, global);
                 }
 
                 let range_count = end_line - start_line + 1;
                 if total_count > 0 {
-                    self.message = Some(format!("{} substitution{} on {} line{}",
+                    self.message = Some(format!(
+                        "{} substitution{} on {} line{}",
                         total_count,
                         if total_count == 1 { "" } else { "s" },
                         range_count,
@@ -1106,7 +1169,8 @@ impl Editor {
                     // Delete lines from end to start to maintain indices
                     for line in (start..=end).rev() {
                         let line_len = self.current_buffer().line_len(line);
-                        self.current_buffer_mut().delete_range(line, 0, line, line_len);
+                        self.current_buffer_mut()
+                            .delete_range(line, 0, line, line_len);
                         // Also delete the newline if not the last line
                         if line < self.current_buffer().line_count() {
                             self.current_buffer_mut().delete_char(line, 0);
@@ -1114,22 +1178,24 @@ impl Editor {
                     }
 
                     let deleted_count = end - start + 1;
-                    self.message = Some(format!("{} line{} deleted", deleted_count, if deleted_count != 1 { "s" } else { "" }));
+                    self.message = Some(format!(
+                        "{} line{} deleted",
+                        deleted_count,
+                        if deleted_count != 1 { "s" } else { "" }
+                    ));
                     self.clamp_cursor();
                 } else {
                     self.message = Some("No range specified".to_string());
                 }
             }
-            Command::Set { option, value } => {
-                match self.config.set(&option, value.as_deref()) {
-                    Ok(()) => {
-                        self.message = Some(format!("{} set", option));
-                    }
-                    Err(e) => {
-                        self.message = Some(e);
-                    }
+            Command::Set { option, value } => match self.config.set(&option, value.as_deref()) {
+                Ok(()) => {
+                    self.message = Some(format!("{} set", option));
                 }
-            }
+                Err(e) => {
+                    self.message = Some(e);
+                }
+            },
             Command::Help(topic) => {
                 if let Some(ref t) = topic {
                     // Show topic-specific help in message bar
@@ -1208,8 +1274,13 @@ note: this is a help buffer - :q to return, or edit as you like!
             Command::BufferList => {
                 // Show current buffer info
                 let buf_name = self.current_buffer().file_name();
-                let modified = if self.current_buffer().is_modified() { "[+]" } else { "" };
-                self.message = Some(format!("1 %a   \"{}\" {} line {}",
+                let modified = if self.current_buffer().is_modified() {
+                    "[+]"
+                } else {
+                    ""
+                };
+                self.message = Some(format!(
+                    "1 %a   \"{}\" {} line {}",
                     buf_name,
                     modified,
                     self.current_buffer().line_count()
@@ -1233,7 +1304,8 @@ note: this is a help buffer - :q to return, or edit as you like!
                 if regs.is_empty() {
                     self.message = Some("No registers populated".to_string());
                 } else {
-                    let output = regs.iter()
+                    let output = regs
+                        .iter()
                         .map(|(k, v)| format!("\"{} {}", k, v))
                         .collect::<Vec<_>>()
                         .join("  ");
@@ -1323,11 +1395,7 @@ note: this is a help buffer - :q to return, or edit as you like!
     }
 
     fn open_buffer_finder(&mut self) {
-        let buffer_names: Vec<String> = self
-            .buffers
-            .iter()
-            .map(|b| b.file_name())
-            .collect();
+        let buffer_names: Vec<String> = self.buffers.iter().map(|b| b.file_name()).collect();
         self.fuzzy_finder = Some(FuzzyFinder::buffers(buffer_names));
         self.mode = Mode::FuzzyFind;
     }
@@ -1358,7 +1426,9 @@ note: this is a help buffer - :q to return, or edit as you like!
                             }
                             crate::fuzzy_finder::FinderType::Buffers => {
                                 // Find buffer index by name
-                                if let Some(idx) = self.buffers.iter().position(|b| b.file_name() == selected) {
+                                if let Some(idx) =
+                                    self.buffers.iter().position(|b| b.file_name() == selected)
+                                {
                                     self.windows[self.active_window].buffer_index = idx;
                                 }
                             }
@@ -1376,7 +1446,8 @@ note: this is a help buffer - :q to return, or edit as you like!
                                         // Center the cursor on screen
                                         let height = self.current_window().viewport.height;
                                         let half_height = height / 2;
-                                        self.current_window_mut().viewport.offset_line = target_line.saturating_sub(half_height);
+                                        self.current_window_mut().viewport.offset_line =
+                                            target_line.saturating_sub(half_height);
                                     }
                                 }
                             }
@@ -1418,7 +1489,10 @@ note: this is a help buffer - :q to return, or edit as you like!
                 self.current_window().cursor.col.saturating_sub(1)
             };
 
-            let old_pos = (self.current_window().cursor.line, self.current_window().cursor.col);
+            let old_pos = (
+                self.current_window().cursor.line,
+                self.current_window().cursor.col,
+            );
 
             if self.search_forward {
                 // Search forward
@@ -1525,7 +1599,13 @@ note: this is a help buffer - :q to return, or edit as you like!
         false
     }
 
-    fn execute_substitute_line(&mut self, line: usize, pattern: &str, replacement: &str, global: bool) -> usize {
+    fn execute_substitute_line(
+        &mut self,
+        line: usize,
+        pattern: &str,
+        replacement: &str,
+        global: bool,
+    ) -> usize {
         if let Some(line_text) = self.current_buffer().get_line(line) {
             let new_text = if global {
                 line_text.replace(pattern, replacement)
@@ -1536,13 +1616,18 @@ note: this is a help buffer - :q to return, or edit as you like!
             let count = if global {
                 line_text.matches(pattern).count()
             } else {
-                if line_text.contains(pattern) { 1 } else { 0 }
+                if line_text.contains(pattern) {
+                    1
+                } else {
+                    0
+                }
             };
 
             if count > 0 {
                 // Replace the entire line
                 let line_len = self.current_buffer().line_len(line);
-                self.current_buffer_mut().delete_range(line, 0, line, line_len);
+                self.current_buffer_mut()
+                    .delete_range(line, 0, line, line_len);
                 for (i, ch) in new_text.chars().enumerate() {
                     self.current_buffer_mut().insert_char(line, i, ch);
                 }
@@ -1554,17 +1639,22 @@ note: this is a help buffer - :q to return, or edit as you like!
         }
     }
 
-
-
     fn apply_text_object_word(&mut self, modifier: TextObjectModifier) -> Result<()> {
         // Find word boundaries around cursor
-        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+        if let Some(line_text) = self
+            .current_buffer()
+            .get_line(self.current_window().cursor.line)
+        {
             let chars: Vec<char> = line_text.chars().collect();
             if chars.is_empty() {
                 return Ok(());
             }
 
-            let mut start = self.current_window().cursor.col.min(chars.len().saturating_sub(1));
+            let mut start = self
+                .current_window()
+                .cursor
+                .col
+                .min(chars.len().saturating_sub(1));
             let mut end = start;
 
             // If on whitespace, move to next word for 'aw', stay for 'iw'
@@ -1611,13 +1701,20 @@ note: this is a help buffer - :q to return, or edit as you like!
 
     fn apply_text_object_word_big(&mut self, modifier: TextObjectModifier) -> Result<()> {
         // Similar to apply_text_object_word but for WORD (space-separated)
-        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+        if let Some(line_text) = self
+            .current_buffer()
+            .get_line(self.current_window().cursor.line)
+        {
             let chars: Vec<char> = line_text.chars().collect();
             if chars.is_empty() {
                 return Ok(());
             }
 
-            let mut start = self.current_window().cursor.col.min(chars.len().saturating_sub(1));
+            let mut start = self
+                .current_window()
+                .cursor
+                .col
+                .min(chars.len().saturating_sub(1));
             let mut end = start;
 
             // Find WORD start
@@ -1683,18 +1780,30 @@ note: this is a help buffer - :q to return, or edit as you like!
             }
         }
 
-        self.apply_operator_to_range(start_line, 0, end_line, self.current_buffer().line_len(end_line))?;
+        self.apply_operator_to_range(
+            start_line,
+            0,
+            end_line,
+            self.current_buffer().line_len(end_line),
+        )?;
         Ok(())
     }
 
     fn apply_text_object_quote(&mut self, modifier: TextObjectModifier, quote: char) -> Result<()> {
-        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+        if let Some(line_text) = self
+            .current_buffer()
+            .get_line(self.current_window().cursor.line)
+        {
             let chars: Vec<char> = line_text.chars().collect();
             if chars.is_empty() {
                 return Ok(());
             }
 
-            let cursor_pos = self.current_window().cursor.col.min(chars.len().saturating_sub(1));
+            let cursor_pos = self
+                .current_window()
+                .cursor
+                .col
+                .min(chars.len().saturating_sub(1));
 
             // Find the quote pair around cursor
             let mut start = None;
@@ -1731,14 +1840,26 @@ note: this is a help buffer - :q to return, or edit as you like!
         Ok(())
     }
 
-    fn apply_text_object_bracket(&mut self, modifier: TextObjectModifier, open: char, close: char) -> Result<()> {
-        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+    fn apply_text_object_bracket(
+        &mut self,
+        modifier: TextObjectModifier,
+        open: char,
+        close: char,
+    ) -> Result<()> {
+        if let Some(line_text) = self
+            .current_buffer()
+            .get_line(self.current_window().cursor.line)
+        {
             let chars: Vec<char> = line_text.chars().collect();
             if chars.is_empty() {
                 return Ok(());
             }
 
-            let cursor_pos = self.current_window().cursor.col.min(chars.len().saturating_sub(1));
+            let cursor_pos = self
+                .current_window()
+                .cursor
+                .col
+                .min(chars.len().saturating_sub(1));
 
             // Find matching brackets around cursor
             let mut start = None;
@@ -1815,7 +1936,8 @@ note: this is a help buffer - :q to return, or edit as you like!
                             lines.push(line_text);
                         }
                     }
-                    self.registers.set_delete(None, RegisterContent::Line(lines.clone()));
+                    self.registers
+                        .set_delete(None, RegisterContent::Line(lines.clone()));
 
                     // Delete the lines
                     for _ in 0..count {
@@ -1828,18 +1950,28 @@ note: this is a help buffer - :q to return, or edit as you like!
                             // Last line - delete from end of previous line
                             let prev_line_len = self.current_buffer().line_len(line - 1);
                             let current_line_len = self.current_buffer().line_len(line);
-                            self.current_buffer_mut().delete_range(line - 1, prev_line_len, line, current_line_len);
+                            self.current_buffer_mut().delete_range(
+                                line - 1,
+                                prev_line_len,
+                                line,
+                                current_line_len,
+                            );
                             self.current_window_mut().cursor.line -= 1;
                             break;
                         } else {
                             break;
                         }
                     }
-                    self.message = Some(format!("{} line{} deleted", lines.len(), if lines.len() == 1 { "" } else { "s" }));
+                    self.message = Some(format!(
+                        "{} line{} deleted",
+                        lines.len(),
+                        if lines.len() == 1 { "" } else { "s" }
+                    ));
                 }
                 "yank_line" => {
                     let start_line = self.current_window().cursor.line;
-                    let end_line = (start_line + count - 1).min(self.current_buffer().line_count() - 1);
+                    let end_line =
+                        (start_line + count - 1).min(self.current_buffer().line_count() - 1);
 
                     // Collect lines being yanked
                     let mut lines = Vec::new();
@@ -1848,12 +1980,18 @@ note: this is a help buffer - :q to return, or edit as you like!
                             lines.push(line_text);
                         }
                     }
-                    self.registers.set_yank(None, RegisterContent::Line(lines.clone()));
-                    self.message = Some(format!("{} line{} yanked", lines.len(), if lines.len() == 1 { "" } else { "s" }));
+                    self.registers
+                        .set_yank(None, RegisterContent::Line(lines.clone()));
+                    self.message = Some(format!(
+                        "{} line{} yanked",
+                        lines.len(),
+                        if lines.len() == 1 { "" } else { "s" }
+                    ));
                 }
                 "change_line" => {
                     let start_line = self.current_window().cursor.line;
-                    let end_line = (start_line + count - 1).min(self.current_buffer().line_count() - 1);
+                    let end_line =
+                        (start_line + count - 1).min(self.current_buffer().line_count() - 1);
 
                     // Collect lines being deleted
                     let mut lines = Vec::new();
@@ -1862,13 +2000,15 @@ note: this is a help buffer - :q to return, or edit as you like!
                             lines.push(line_text);
                         }
                     }
-                    self.registers.set_delete(None, RegisterContent::Line(lines.clone()));
+                    self.registers
+                        .set_delete(None, RegisterContent::Line(lines.clone()));
 
                     // Delete line content(s) and enter insert mode
                     let line = self.current_window().cursor.line;
                     let line_len = self.current_buffer().line_len(line);
                     if line_len > 0 {
-                        self.current_buffer_mut().delete_range(line, 0, line, line_len);
+                        self.current_buffer_mut()
+                            .delete_range(line, 0, line, line_len);
                     }
 
                     // Delete additional lines if count > 1
@@ -1883,7 +2023,11 @@ note: this is a help buffer - :q to return, or edit as you like!
 
                     self.current_window_mut().cursor.col = 0;
                     self.mode = Mode::Insert;
-                    self.message = Some(format!("{} line{} deleted", lines.len(), if lines.len() == 1 { "" } else { "s" }));
+                    self.message = Some(format!(
+                        "{} line{} deleted",
+                        lines.len(),
+                        if lines.len() == 1 { "" } else { "s" }
+                    ));
                 }
                 _ => {}
             }
@@ -1911,21 +2055,45 @@ note: this is a help buffer - :q to return, or edit as you like!
         // Execute the motion
         match action {
             // Movement actions
-            Action::MoveUp | Action::MoveDown | Action::MoveLeft | Action::MoveRight |
-            Action::MoveWordForward | Action::MoveWordBackward | Action::MoveWordEnd |
-            Action::MoveWordEndBack | Action::MoveWordEndBackBig |
-            Action::MoveWordForwardBig | Action::MoveWordBackwardBig | Action::MoveWordEndBig |
-            Action::MoveLineStart | Action::MoveLineFirstNonBlank | Action::MoveLineEnd |
-            Action::MoveLineEndNonBlank | Action::MoveLineStartDisplay | Action::MoveLineEndDisplay |
-            Action::MoveFileStart | Action::MoveFileEnd |
-            Action::MoveParagraphForward | Action::MoveParagraphBackward |
-            Action::MoveSentenceForward | Action::MoveSentenceBackward |
-            Action::FindChar(_) | Action::FindCharBack(_) | Action::TillChar(_) | Action::TillCharBack(_) |
-            Action::RepeatLastFind | Action::RepeatLastFindReverse |
-            Action::MoveToScreenTop | Action::MoveToScreenMiddle | Action::MoveToScreenBottom |
-            Action::MoveMatchingBracket | Action::MoveToPercent |
-            Action::MovePageUp | Action::MovePageDown |
-            Action::MoveHalfPageUp | Action::MoveHalfPageDown => {
+            Action::MoveUp
+            | Action::MoveDown
+            | Action::MoveLeft
+            | Action::MoveRight
+            | Action::MoveWordForward
+            | Action::MoveWordBackward
+            | Action::MoveWordEnd
+            | Action::MoveWordEndBack
+            | Action::MoveWordEndBackBig
+            | Action::MoveWordForwardBig
+            | Action::MoveWordBackwardBig
+            | Action::MoveWordEndBig
+            | Action::MoveLineStart
+            | Action::MoveLineFirstNonBlank
+            | Action::MoveLineEnd
+            | Action::MoveLineEndNonBlank
+            | Action::MoveLineStartDisplay
+            | Action::MoveLineEndDisplay
+            | Action::MoveFileStart
+            | Action::MoveFileEnd
+            | Action::MoveParagraphForward
+            | Action::MoveParagraphBackward
+            | Action::MoveSentenceForward
+            | Action::MoveSentenceBackward
+            | Action::FindChar(_)
+            | Action::FindCharBack(_)
+            | Action::TillChar(_)
+            | Action::TillCharBack(_)
+            | Action::RepeatLastFind
+            | Action::RepeatLastFindReverse
+            | Action::MoveToScreenTop
+            | Action::MoveToScreenMiddle
+            | Action::MoveToScreenBottom
+            | Action::MoveMatchingBracket
+            | Action::MoveToPercent
+            | Action::MovePageUp
+            | Action::MovePageDown
+            | Action::MoveHalfPageUp
+            | Action::MoveHalfPageDown => {
                 // Save current position
                 let old_cursor = self.current_window().cursor;
 
@@ -1943,12 +2111,16 @@ note: this is a help buffer - :q to return, or edit as you like!
                 self.apply_operator_to_range(start_line, start_col, end_line, end_col)?;
 
                 // Record change for dot repeat (not for yank)
-                if self.pending_operator != PendingOperator::Yank && self.pending_operator != PendingOperator::None {
+                if self.pending_operator != PendingOperator::Yank
+                    && self.pending_operator != PendingOperator::None
+                {
                     self.record_change(action.clone());
                 }
 
                 // Restore cursor for delete/change
-                if self.pending_operator == PendingOperator::Delete || self.pending_operator == PendingOperator::Change {
+                if self.pending_operator == PendingOperator::Delete
+                    || self.pending_operator == PendingOperator::Change
+                {
                     self.current_window_mut().cursor = old_cursor;
                 }
 
@@ -1964,14 +2136,21 @@ note: this is a help buffer - :q to return, or edit as you like!
         Ok(())
     }
 
-    fn apply_operator_to_range(&mut self, start_line: usize, start_col: usize, end_line: usize, end_col: usize) -> Result<()> {
+    fn apply_operator_to_range(
+        &mut self,
+        start_line: usize,
+        start_col: usize,
+        end_line: usize,
+        end_col: usize,
+    ) -> Result<()> {
         self.save_undo_state();
         // Normalize range (ensure start comes before end)
-        let (start_line, start_col, end_line, end_col) = if start_line > end_line || (start_line == end_line && start_col > end_col) {
-            (end_line, end_col, start_line, start_col)
-        } else {
-            (start_line, start_col, end_line, end_col)
-        };
+        let (start_line, start_col, end_line, end_col) =
+            if start_line > end_line || (start_line == end_line && start_col > end_col) {
+                (end_line, end_col, start_line, start_col)
+            } else {
+                (start_line, start_col, end_line, end_col)
+            };
 
         match self.pending_operator {
             PendingOperator::Delete => {
@@ -1984,14 +2163,23 @@ note: this is a help buffer - :q to return, or edit as you like!
                             lines.push(line_text);
                         }
                     }
-                    self.registers.set_delete(None, RegisterContent::Line(lines.clone()));
-                    self.current_buffer_mut().delete_range(start_line, start_col, end_line, end_col);
-                    self.message = Some(format!("{} line{} deleted", lines.len(), if lines.len() == 1 { "" } else { "s" }));
+                    self.registers
+                        .set_delete(None, RegisterContent::Line(lines.clone()));
+                    self.current_buffer_mut()
+                        .delete_range(start_line, start_col, end_line, end_col);
+                    self.message = Some(format!(
+                        "{} line{} deleted",
+                        lines.len(),
+                        if lines.len() == 1 { "" } else { "s" }
+                    ));
                 } else {
                     // Character-wise delete
-                    let deleted_text = self.get_range_text(start_line, start_col, end_line, end_col);
-                    self.registers.set_delete(None, RegisterContent::Char(deleted_text));
-                    self.current_buffer_mut().delete_range(start_line, start_col, end_line, end_col);
+                    let deleted_text =
+                        self.get_range_text(start_line, start_col, end_line, end_col);
+                    self.registers
+                        .set_delete(None, RegisterContent::Char(deleted_text));
+                    self.current_buffer_mut()
+                        .delete_range(start_line, start_col, end_line, end_col);
                 }
             }
             PendingOperator::Yank => {
@@ -2004,26 +2192,35 @@ note: this is a help buffer - :q to return, or edit as you like!
                             lines.push(line_text);
                         }
                     }
-                    self.registers.set_yank(None, RegisterContent::Line(lines.clone()));
-                    self.message = Some(format!("{} line{} yanked", lines.len(), if lines.len() == 1 { "" } else { "s" }));
+                    self.registers
+                        .set_yank(None, RegisterContent::Line(lines.clone()));
+                    self.message = Some(format!(
+                        "{} line{} yanked",
+                        lines.len(),
+                        if lines.len() == 1 { "" } else { "s" }
+                    ));
                 } else {
                     // Character-wise yank
                     let yanked_text = self.get_range_text(start_line, start_col, end_line, end_col);
                     let char_count = yanked_text.len();
-                    self.registers.set_yank(None, RegisterContent::Char(yanked_text));
+                    self.registers
+                        .set_yank(None, RegisterContent::Char(yanked_text));
                     self.message = Some(format!("Yanked {} characters", char_count));
                 }
                 // Set change marks
-                self.current_buffer_mut().set_mark('[', (start_line, start_col));
+                self.current_buffer_mut()
+                    .set_mark('[', (start_line, start_col));
                 self.current_buffer_mut().set_mark(']', (end_line, end_col));
             }
             PendingOperator::Change => {
                 // Get the text being deleted
                 let deleted_text = self.get_range_text(start_line, start_col, end_line, end_col);
-                self.registers.set_delete(None, RegisterContent::Char(deleted_text));
+                self.registers
+                    .set_delete(None, RegisterContent::Char(deleted_text));
 
                 // Delete the range and enter insert mode
-                self.current_buffer_mut().delete_range(start_line, start_col, end_line, end_col);
+                self.current_buffer_mut()
+                    .delete_range(start_line, start_col, end_line, end_col);
                 self.mode = Mode::Insert;
             }
             PendingOperator::MakeLowercase => {
@@ -2033,7 +2230,13 @@ note: this is a help buffer - :q to return, or edit as you like!
                 self.apply_case_change(start_line, start_col, end_line, end_col, CaseChange::Upper);
             }
             PendingOperator::ToggleCase => {
-                self.apply_case_change(start_line, start_col, end_line, end_col, CaseChange::Toggle);
+                self.apply_case_change(
+                    start_line,
+                    start_col,
+                    end_line,
+                    end_col,
+                    CaseChange::Toggle,
+                );
             }
             PendingOperator::Indent => {
                 self.apply_indent(start_line, end_line, true);
@@ -2050,7 +2253,13 @@ note: this is a help buffer - :q to return, or edit as you like!
         Ok(())
     }
 
-    fn get_range_text(&self, start_line: usize, start_col: usize, end_line: usize, end_col: usize) -> String {
+    fn get_range_text(
+        &self,
+        start_line: usize,
+        start_col: usize,
+        end_line: usize,
+        end_col: usize,
+    ) -> String {
         if start_line == end_line {
             // Same line
             if let Some(line_text) = self.current_buffer().get_line(start_line) {
@@ -2088,7 +2297,14 @@ note: this is a help buffer - :q to return, or edit as you like!
         String::new()
     }
 
-    fn apply_case_change(&mut self, start_line: usize, start_col: usize, end_line: usize, end_col: usize, case_change: CaseChange) {
+    fn apply_case_change(
+        &mut self,
+        start_line: usize,
+        start_col: usize,
+        end_line: usize,
+        end_col: usize,
+        case_change: CaseChange,
+    ) {
         for line_idx in start_line..=end_line {
             if let Some(line_text) = self.current_buffer().get_line(line_idx) {
                 let chars: Vec<char> = line_text.chars().collect();
@@ -2130,7 +2346,8 @@ note: this is a help buffer - :q to return, or edit as you like!
                         if new_char.len() > 0 && new_char[0] != old_char {
                             self.current_buffer_mut().delete_char(line_idx, col);
                             for (i, ch) in new_char.iter().enumerate() {
-                                self.current_buffer_mut().insert_char(line_idx, col + i, *ch);
+                                self.current_buffer_mut()
+                                    .insert_char(line_idx, col + i, *ch);
                             }
                         }
                     }
@@ -2222,7 +2439,10 @@ note: this is a help buffer - :q to return, or edit as you like!
         self.last_change = Some((action, count));
 
         // Add position to change list
-        let pos = (self.current_window().cursor.line, self.current_window().cursor.col);
+        let pos = (
+            self.current_window().cursor.line,
+            self.current_window().cursor.col,
+        );
         self.change_list.push(pos);
         self.change_index = self.change_list.len().saturating_sub(1);
 
@@ -2242,17 +2462,17 @@ note: this is a help buffer - :q to return, or edit as you like!
 
         if let Some(reg) = actual_reg {
             self.last_macro_register = Some(reg);
-            
+
             if let Some(RegisterContent::Macro(keys)) = self.registers.get(Some(reg)) {
                 let keys = keys.clone(); // Clone to avoid borrow checker issues
-                
+
                 // Play back keys
                 // We need to handle counts.
                 let count = if self.count == 0 { 1 } else { self.count };
-                
+
                 // Nesting protection? Vim allows recursion but checks depth.
                 // For now, let's just play it.
-                
+
                 for _ in 0..count {
                     for key in &keys {
                         self.handle_key(key.clone())?;
@@ -2264,12 +2484,15 @@ note: this is a help buffer - :q to return, or edit as you like!
         } else {
             self.message = Some("No previously executed macro".to_string());
         }
-        
+
         Ok(())
     }
 
     fn save_jump_position(&mut self) {
-        let pos = (self.current_window().cursor.line, self.current_window().cursor.col);
+        let pos = (
+            self.current_window().cursor.line,
+            self.current_window().cursor.col,
+        );
         self.current_buffer_mut().set_mark('\'', pos);
         self.current_buffer_mut().set_mark('`', pos);
 
@@ -2469,7 +2692,8 @@ note: this is a help buffer - :q to return, or edit as you like!
                 let height = self.current_window().viewport.height;
                 let middle_line = offset_line + (height / 2);
                 let line_count = self.current_buffer().line_count();
-                self.current_window_mut().cursor.line = middle_line.min(line_count.saturating_sub(1));
+                self.current_window_mut().cursor.line =
+                    middle_line.min(line_count.saturating_sub(1));
                 self.current_window_mut().cursor.col = 0;
                 self.clamp_cursor();
             }
@@ -2478,7 +2702,8 @@ note: this is a help buffer - :q to return, or edit as you like!
                 let height = self.current_window().viewport.height;
                 let bottom_line = offset_line + height - 1;
                 let line_count = self.current_buffer().line_count();
-                self.current_window_mut().cursor.line = bottom_line.min(line_count.saturating_sub(1));
+                self.current_window_mut().cursor.line =
+                    bottom_line.min(line_count.saturating_sub(1));
                 self.current_window_mut().cursor.col = 0;
                 self.clamp_cursor();
             }
@@ -2541,7 +2766,9 @@ note: this is a help buffer - :q to return, or edit as you like!
                     let percent = self.count.min(100);
                     let total_lines = self.current_buffer().line_count();
                     let target_line = (total_lines * percent) / 100;
-                    self.current_window_mut().cursor.line = target_line.saturating_sub(1).min(total_lines.saturating_sub(1));
+                    self.current_window_mut().cursor.line = target_line
+                        .saturating_sub(1)
+                        .min(total_lines.saturating_sub(1));
                     self.current_window_mut().cursor.col = 0;
                 } else {
                     // No count: fallback to matching bracket behavior
@@ -2605,7 +2832,10 @@ note: this is a help buffer - :q to return, or edit as you like!
             }
             Action::EnterCommandMode => {
                 // Store visual selection range if entering from visual mode
-                if matches!(self.mode, Mode::Visual | Mode::VisualLine | Mode::VisualBlock) {
+                if matches!(
+                    self.mode,
+                    Mode::Visual | Mode::VisualLine | Mode::VisualBlock
+                ) {
                     if let Some(ref selection) = self.selection {
                         let (start, end) = selection.range();
                         self.visual_cmd_range = Some((start.line, end.line));
@@ -2623,13 +2853,15 @@ note: this is a help buffer - :q to return, or edit as you like!
                     // Update < and > marks
                     if let Some(selection) = &self.selection {
                         let (start_pos, end_pos) = selection.range();
-                        self.current_buffer_mut().set_mark('<', (start_pos.line, start_pos.col));
-                        self.current_buffer_mut().set_mark('>', (end_pos.line, end_pos.col));
+                        self.current_buffer_mut()
+                            .set_mark('<', (start_pos.line, start_pos.col));
+                        self.current_buffer_mut()
+                            .set_mark('>', (end_pos.line, end_pos.col));
                     }
                 }
                 self.mode = Mode::Normal;
                 self.selection = None; // Clear selection when leaving visual mode
-                // In normal mode, cursor should not go past last char
+                                       // In normal mode, cursor should not go past last char
                 let line = self.current_window().cursor.line;
                 let line_len = self.current_buffer().line_len(line);
                 if line_len > 0 && self.current_window().cursor.col >= line_len {
@@ -2668,12 +2900,19 @@ note: this is a help buffer - :q to return, or edit as you like!
                         self.current_buffer_mut().delete_char(line, col);
                     } else if self.current_window().cursor.line > 0 {
                         // At the beginning of a line, join with the previous line
-                        let prev_line_len = self.current_buffer().line_len(self.current_window().cursor.line - 1);
+                        let prev_line_len = self
+                            .current_buffer()
+                            .line_len(self.current_window().cursor.line - 1);
                         let current_line = self.current_window().cursor.line;
-                        
+
                         // Delete the newline character
-                        self.current_buffer_mut().delete_range(current_line - 1, prev_line_len, current_line, 0);
-                        
+                        self.current_buffer_mut().delete_range(
+                            current_line - 1,
+                            prev_line_len,
+                            current_line,
+                            0,
+                        );
+
                         // Move cursor to the end of the previous line
                         self.current_window_mut().cursor.line -= 1;
                         self.current_window_mut().cursor.col = prev_line_len;
@@ -2723,7 +2962,10 @@ note: this is a help buffer - :q to return, or edit as you like!
 
             // Operators
             Action::Delete => {
-                if matches!(self.mode, Mode::Visual | Mode::VisualLine | Mode::VisualBlock) {
+                if matches!(
+                    self.mode,
+                    Mode::Visual | Mode::VisualLine | Mode::VisualBlock
+                ) {
                     if let Some(selection) = self.selection.clone() {
                         let (start, end) = selection.range();
                         self.pending_operator = PendingOperator::Delete;
@@ -2744,11 +2986,15 @@ note: this is a help buffer - :q to return, or edit as you like!
                 let start_col = self.current_window().cursor.col;
                 let end_col = self.current_buffer().line_len(line);
                 if start_col < end_col {
-                    let deleted = self.current_buffer().get_line(line)
+                    let deleted = self
+                        .current_buffer()
+                        .get_line(line)
                         .map(|text| text[start_col..end_col].to_string())
                         .unwrap_or_default();
-                    self.current_buffer_mut().delete_range(line, start_col, line, end_col);
-                    self.registers.set_delete(None, RegisterContent::Char(deleted));
+                    self.current_buffer_mut()
+                        .delete_range(line, start_col, line, end_col);
+                    self.registers
+                        .set_delete(None, RegisterContent::Char(deleted));
                 }
             }
             Action::Change => {
@@ -2761,11 +3007,15 @@ note: this is a help buffer - :q to return, or edit as you like!
                 let start_col = self.current_window().cursor.col;
                 let end_col = self.current_buffer().line_len(line);
                 if start_col < end_col {
-                    let deleted = self.current_buffer().get_line(line)
+                    let deleted = self
+                        .current_buffer()
+                        .get_line(line)
                         .map(|text| text[start_col..end_col].to_string())
                         .unwrap_or_default();
-                    self.current_buffer_mut().delete_range(line, start_col, line, end_col);
-                    self.registers.set_delete(None, RegisterContent::Char(deleted));
+                    self.current_buffer_mut()
+                        .delete_range(line, start_col, line, end_col);
+                    self.registers
+                        .set_delete(None, RegisterContent::Char(deleted));
                 }
                 self.mode = Mode::Insert;
             }
@@ -2780,8 +3030,13 @@ note: this is a help buffer - :q to return, or edit as you like!
                                 lines.push(line_text);
                             }
                         }
-                        self.registers.set_yank(None, crate::register::RegisterContent::Line(lines.clone()));
-                        self.message = Some(format!("{} line{} yanked", lines.len(), if lines.len() == 1 { "" } else { "s" }));
+                        self.registers
+                            .set_yank(None, crate::register::RegisterContent::Line(lines.clone()));
+                        self.message = Some(format!(
+                            "{} line{} yanked",
+                            lines.len(),
+                            if lines.len() == 1 { "" } else { "s" }
+                        ));
                         // Do not delete, just exit visual mode
                         self.mode = Mode::Normal;
                         self.selection = None;
@@ -2792,8 +3047,12 @@ note: this is a help buffer - :q to return, or edit as you like!
             }
             Action::YankLine => {
                 // Yank entire line
-                if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
-                    self.registers.set_yank(None, RegisterContent::Line(vec![line_text]));
+                if let Some(line_text) = self
+                    .current_buffer()
+                    .get_line(self.current_window().cursor.line)
+                {
+                    self.registers
+                        .set_yank(None, RegisterContent::Line(vec![line_text]));
                     self.message = Some("1 line yanked".to_string());
                 }
             }
@@ -2811,8 +3070,11 @@ note: this is a help buffer - :q to return, or edit as you like!
             }
             Action::Paste => {
                 self.save_undo_state();
-                let start_pos = (self.current_window().cursor.line, self.current_window().cursor.col);
-                
+                let start_pos = (
+                    self.current_window().cursor.line,
+                    self.current_window().cursor.col,
+                );
+
                 // Paste after cursor (repeat count times)
                 let count = if self.count == 0 { 1 } else { self.count };
                 for _ in 0..count {
@@ -2842,8 +3104,10 @@ note: this is a help buffer - :q to return, or edit as you like!
                                     // Insert newline to create space
                                     if target_line > 0 {
                                         let prev_line = target_line - 1;
-                                        let prev_line_len = self.current_buffer().line_len(prev_line);
-                                        self.current_buffer_mut().insert_newline(prev_line, prev_line_len);
+                                        let prev_line_len =
+                                            self.current_buffer().line_len(prev_line);
+                                        self.current_buffer_mut()
+                                            .insert_newline(prev_line, prev_line_len);
                                     }
                                     // Insert the line content at incrementing positions
                                     for (idx, ch) in line.chars().enumerate() {
@@ -2857,15 +3121,21 @@ note: this is a help buffer - :q to return, or edit as you like!
                         }
                     }
                 }
-                
-                let end_pos = (self.current_window().cursor.line, self.current_window().cursor.col);
+
+                let end_pos = (
+                    self.current_window().cursor.line,
+                    self.current_window().cursor.col,
+                );
                 self.current_buffer_mut().set_mark('[', start_pos);
                 self.current_buffer_mut().set_mark(']', end_pos);
             }
             Action::PasteBefore => {
                 self.save_undo_state();
-                let start_pos = (self.current_window().cursor.line, self.current_window().cursor.col);
-                
+                let start_pos = (
+                    self.current_window().cursor.line,
+                    self.current_window().cursor.col,
+                );
+
                 // Paste before cursor (repeat count times)
                 let count = if self.count == 0 { 1 } else { self.count };
                 for _ in 0..count {
@@ -2895,8 +3165,10 @@ note: this is a help buffer - :q to return, or edit as you like!
                                     // Insert newline to create space
                                     if target_line > 0 {
                                         let prev_line = target_line.saturating_sub(1);
-                                        let prev_line_len = self.current_buffer().line_len(prev_line);
-                                        self.current_buffer_mut().insert_newline(prev_line, prev_line_len);
+                                        let prev_line_len =
+                                            self.current_buffer().line_len(prev_line);
+                                        self.current_buffer_mut()
+                                            .insert_newline(prev_line, prev_line_len);
                                     } else {
                                         // Special case: inserting before line 0
                                         self.current_buffer_mut().insert_newline(0, 0);
@@ -2913,8 +3185,11 @@ note: this is a help buffer - :q to return, or edit as you like!
                         }
                     }
                 }
-                
-                let end_pos = (self.current_window().cursor.line, self.current_window().cursor.col);
+
+                let end_pos = (
+                    self.current_window().cursor.line,
+                    self.current_window().cursor.col,
+                );
                 self.current_buffer_mut().set_mark('[', start_pos);
                 self.current_buffer_mut().set_mark(']', end_pos);
             }
@@ -2926,11 +3201,17 @@ note: this is a help buffer - :q to return, or edit as you like!
                     let line1_len = self.current_buffer().line_len(current_line);
 
                     // Delete the newline at end of current line
-                    self.current_buffer_mut().delete_range(current_line, line1_len, current_line + 1, 0);
+                    self.current_buffer_mut().delete_range(
+                        current_line,
+                        line1_len,
+                        current_line + 1,
+                        0,
+                    );
 
                     // Insert space if needed
                     if line1_len > 0 {
-                        self.current_buffer_mut().insert_char(current_line, line1_len, ' ');
+                        self.current_buffer_mut()
+                            .insert_char(current_line, line1_len, ' ');
                     }
                 }
             }
@@ -2941,7 +3222,12 @@ note: this is a help buffer - :q to return, or edit as you like!
                 if current_line < self.current_buffer().line_count() - 1 {
                     let line1_len = self.current_buffer().line_len(current_line);
                     // Delete the newline at end of current line
-                    self.current_buffer_mut().delete_range(current_line, line1_len, current_line + 1, 0);
+                    self.current_buffer_mut().delete_range(
+                        current_line,
+                        line1_len,
+                        current_line + 1,
+                        0,
+                    );
                 }
             }
             Action::MakeLowercase => {
@@ -2968,7 +3254,11 @@ note: this is a help buffer - :q to return, or edit as you like!
                 if let Some((last_action, last_count)) = self.last_change.clone() {
                     // Use current count if specified, otherwise use stored count
                     let saved_count = self.count;
-                    self.count = if saved_count > 0 { saved_count } else { last_count };
+                    self.count = if saved_count > 0 {
+                        saved_count
+                    } else {
+                        last_count
+                    };
 
                     // Execute the last action
                     self.execute_action(last_action)?;
@@ -3017,7 +3307,10 @@ note: this is a help buffer - :q to return, or edit as you like!
             }
             Action::SearchWordForward => {
                 // Search for word under cursor forward
-                if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+                if let Some(line_text) = self
+                    .current_buffer()
+                    .get_line(self.current_window().cursor.line)
+                {
                     let chars: Vec<char> = line_text.chars().collect();
                     if self.current_window().cursor.col < chars.len() {
                         // Extract word under cursor
@@ -3025,10 +3318,16 @@ note: this is a help buffer - :q to return, or edit as you like!
                         let mut end = self.current_window().cursor.col;
 
                         // Find word boundaries
-                        while start > 0 && !chars[start - 1].is_whitespace() && chars[start - 1].is_alphanumeric() {
+                        while start > 0
+                            && !chars[start - 1].is_whitespace()
+                            && chars[start - 1].is_alphanumeric()
+                        {
                             start -= 1;
                         }
-                        while end < chars.len() && !chars[end].is_whitespace() && chars[end].is_alphanumeric() {
+                        while end < chars.len()
+                            && !chars[end].is_whitespace()
+                            && chars[end].is_alphanumeric()
+                        {
                             end += 1;
                         }
 
@@ -3043,7 +3342,10 @@ note: this is a help buffer - :q to return, or edit as you like!
             }
             Action::SearchWordBackward => {
                 // Search for word under cursor backward
-                if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+                if let Some(line_text) = self
+                    .current_buffer()
+                    .get_line(self.current_window().cursor.line)
+                {
                     let chars: Vec<char> = line_text.chars().collect();
                     if self.current_window().cursor.col < chars.len() {
                         // Extract word under cursor
@@ -3051,10 +3353,16 @@ note: this is a help buffer - :q to return, or edit as you like!
                         let mut end = self.current_window().cursor.col;
 
                         // Find word boundaries
-                        while start > 0 && !chars[start - 1].is_whitespace() && chars[start - 1].is_alphanumeric() {
+                        while start > 0
+                            && !chars[start - 1].is_whitespace()
+                            && chars[start - 1].is_alphanumeric()
+                        {
                             start -= 1;
                         }
-                        while end < chars.len() && !chars[end].is_whitespace() && chars[end].is_alphanumeric() {
+                        while end < chars.len()
+                            && !chars[end].is_whitespace()
+                            && chars[end].is_alphanumeric()
+                        {
                             end += 1;
                         }
 
@@ -3073,7 +3381,8 @@ note: this is a help buffer - :q to return, or edit as you like!
                 if self.change_index < self.change_list.len().saturating_sub(1) {
                     self.change_index += 1;
                     let (line, col) = self.change_list[self.change_index];
-                    self.current_window_mut().cursor.line = line.min(self.current_buffer().line_count().saturating_sub(1));
+                    self.current_window_mut().cursor.line =
+                        line.min(self.current_buffer().line_count().saturating_sub(1));
                     self.current_window_mut().cursor.col = col;
                     self.clamp_cursor();
                 }
@@ -3082,7 +3391,8 @@ note: this is a help buffer - :q to return, or edit as you like!
                 if self.change_index > 0 {
                     self.change_index -= 1;
                     let (line, col) = self.change_list[self.change_index];
-                    self.current_window_mut().cursor.line = line.min(self.current_buffer().line_count().saturating_sub(1));
+                    self.current_window_mut().cursor.line =
+                        line.min(self.current_buffer().line_count().saturating_sub(1));
                     self.current_window_mut().cursor.col = col;
                     self.clamp_cursor();
                 }
@@ -3091,8 +3401,11 @@ note: this is a help buffer - :q to return, or edit as you like!
                 if self.jump_list.is_empty() {
                     return Ok(());
                 }
-                
-                let current_pos = (self.current_window().cursor.line, self.current_window().cursor.col);
+
+                let current_pos = (
+                    self.current_window().cursor.line,
+                    self.current_window().cursor.col,
+                );
                 // If we are at the tip and have drifted, save current position
                 if self.jump_index == self.jump_list.len() - 1 {
                     if self.jump_list[self.jump_index] != current_pos {
@@ -3100,11 +3413,12 @@ note: this is a help buffer - :q to return, or edit as you like!
                         self.jump_index = self.jump_list.len() - 1;
                     }
                 }
-                
+
                 if self.jump_index > 0 {
                     self.jump_index -= 1;
                     let (line, col) = self.jump_list[self.jump_index];
-                    self.current_window_mut().cursor.line = line.min(self.current_buffer().line_count().saturating_sub(1));
+                    self.current_window_mut().cursor.line =
+                        line.min(self.current_buffer().line_count().saturating_sub(1));
                     self.current_window_mut().cursor.col = col;
                     self.clamp_cursor();
                 }
@@ -3113,7 +3427,8 @@ note: this is a help buffer - :q to return, or edit as you like!
                 if self.jump_index < self.jump_list.len().saturating_sub(1) {
                     self.jump_index += 1;
                     let (line, col) = self.jump_list[self.jump_index];
-                    self.current_window_mut().cursor.line = line.min(self.current_buffer().line_count().saturating_sub(1));
+                    self.current_window_mut().cursor.line =
+                        line.min(self.current_buffer().line_count().saturating_sub(1));
                     self.current_window_mut().cursor.col = col;
                     self.clamp_cursor();
                 }
@@ -3127,26 +3442,38 @@ note: this is a help buffer - :q to return, or edit as you like!
 
         // Update viewport to keep cursor visible
         let cursor = self.current_window().cursor;
-        self.current_window_mut().viewport.ensure_cursor_visible(cursor.line, cursor.col);
+        self.current_window_mut()
+            .viewport
+            .ensure_cursor_visible(cursor.line, cursor.col);
 
         Ok(())
     }
 
     fn clamp_cursor(&mut self) {
         let line_count = self.current_buffer().line_count().max(1);
-        self.current_window_mut().cursor.line = self.current_window().cursor.line.min(line_count - 1);
+        self.current_window_mut().cursor.line =
+            self.current_window().cursor.line.min(line_count - 1);
 
-        let line_len = self.current_buffer().line_len(self.current_window().cursor.line);
+        let line_len = self
+            .current_buffer()
+            .line_len(self.current_window().cursor.line);
         if self.mode == Mode::Normal && line_len > 0 {
             // In normal mode, cursor can't go past last character
-            self.current_window_mut().cursor.col = self.current_window().cursor.col.min(line_len.saturating_sub(1));
+            self.current_window_mut().cursor.col = self
+                .current_window()
+                .cursor
+                .col
+                .min(line_len.saturating_sub(1));
         } else if self.mode == Mode::Insert {
             // In insert mode, cursor can be at end of line
             self.current_window_mut().cursor.col = self.current_window().cursor.col.min(line_len);
         }
 
         // Update selection if in visual mode
-        if matches!(self.mode, Mode::Visual | Mode::VisualLine | Mode::VisualBlock) {
+        if matches!(
+            self.mode,
+            Mode::Visual | Mode::VisualLine | Mode::VisualBlock
+        ) {
             let cursor = self.current_window().cursor;
             if let Some(ref mut selection) = self.selection {
                 selection.update_cursor(cursor.into());
@@ -3155,8 +3482,14 @@ note: this is a help buffer - :q to return, or edit as you like!
     }
 
     fn move_word_forward(&mut self) {
-        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
-            let mut chars = line_text.chars().skip(self.current_window().cursor.col).peekable();
+        if let Some(line_text) = self
+            .current_buffer()
+            .get_line(self.current_window().cursor.line)
+        {
+            let mut chars = line_text
+                .chars()
+                .skip(self.current_window().cursor.col)
+                .peekable();
             let mut col = self.current_window().cursor.col;
 
             // Skip current word
@@ -3183,7 +3516,10 @@ note: this is a help buffer - :q to return, or edit as you like!
     }
 
     fn move_word_backward(&mut self) {
-        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+        if let Some(line_text) = self
+            .current_buffer()
+            .get_line(self.current_window().cursor.line)
+        {
             if self.current_window().cursor.col == 0 {
                 return;
             }
@@ -3211,7 +3547,10 @@ note: this is a help buffer - :q to return, or edit as you like!
     }
 
     fn move_word_end(&mut self) {
-        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+        if let Some(line_text) = self
+            .current_buffer()
+            .get_line(self.current_window().cursor.line)
+        {
             let chars: Vec<char> = line_text.chars().collect();
             if chars.is_empty() || self.current_window().cursor.col >= chars.len() {
                 return;
@@ -3238,8 +3577,14 @@ note: this is a help buffer - :q to return, or edit as you like!
 
     fn move_word_forward_big(&mut self) {
         // WORD motion (space-separated)
-        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
-            let mut chars = line_text.chars().skip(self.current_window().cursor.col).peekable();
+        if let Some(line_text) = self
+            .current_buffer()
+            .get_line(self.current_window().cursor.line)
+        {
+            let mut chars = line_text
+                .chars()
+                .skip(self.current_window().cursor.col)
+                .peekable();
             let mut col = self.current_window().cursor.col;
 
             // Skip current WORD (non-whitespace)
@@ -3266,7 +3611,10 @@ note: this is a help buffer - :q to return, or edit as you like!
     }
 
     fn move_word_backward_big(&mut self) {
-        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+        if let Some(line_text) = self
+            .current_buffer()
+            .get_line(self.current_window().cursor.line)
+        {
             if self.current_window().cursor.col == 0 {
                 return;
             }
@@ -3294,7 +3642,10 @@ note: this is a help buffer - :q to return, or edit as you like!
     }
 
     fn move_word_end_big(&mut self) {
-        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+        if let Some(line_text) = self
+            .current_buffer()
+            .get_line(self.current_window().cursor.line)
+        {
             let chars: Vec<char> = line_text.chars().collect();
             if chars.is_empty() || self.current_window().cursor.col >= chars.len() {
                 return;
@@ -3320,7 +3671,10 @@ note: this is a help buffer - :q to return, or edit as you like!
     }
 
     fn move_to_first_non_blank(&mut self) {
-        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+        if let Some(line_text) = self
+            .current_buffer()
+            .get_line(self.current_window().cursor.line)
+        {
             let chars: Vec<char> = line_text.chars().collect();
             let mut col = 0;
 
@@ -3334,13 +3688,18 @@ note: this is a help buffer - :q to return, or edit as you like!
 
     fn move_word_end_back(&mut self) {
         // ge - move to end of previous word
-        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+        if let Some(line_text) = self
+            .current_buffer()
+            .get_line(self.current_window().cursor.line)
+        {
             let chars: Vec<char> = line_text.chars().collect();
             if chars.is_empty() || self.current_window().cursor.col == 0 {
                 // Try previous line
                 if self.current_window().cursor.line > 0 {
                     self.current_window_mut().cursor.line -= 1;
-                    let prev_line_len = self.current_buffer().line_len(self.current_window().cursor.line);
+                    let prev_line_len = self
+                        .current_buffer()
+                        .line_len(self.current_window().cursor.line);
                     self.current_window_mut().cursor.col = prev_line_len.saturating_sub(1);
                 }
                 return;
@@ -3369,13 +3728,18 @@ note: this is a help buffer - :q to return, or edit as you like!
 
     fn move_word_end_back_big(&mut self) {
         // gE - move to end of previous WORD
-        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+        if let Some(line_text) = self
+            .current_buffer()
+            .get_line(self.current_window().cursor.line)
+        {
             let chars: Vec<char> = line_text.chars().collect();
             if chars.is_empty() || self.current_window().cursor.col == 0 {
                 // Try previous line
                 if self.current_window().cursor.line > 0 {
                     self.current_window_mut().cursor.line -= 1;
-                    let prev_line_len = self.current_buffer().line_len(self.current_window().cursor.line);
+                    let prev_line_len = self
+                        .current_buffer()
+                        .line_len(self.current_window().cursor.line);
                     self.current_window_mut().cursor.col = prev_line_len.saturating_sub(1);
                 }
                 return;
@@ -3404,7 +3768,10 @@ note: this is a help buffer - :q to return, or edit as you like!
 
     fn move_to_line_end_non_blank(&mut self) {
         // g_ - move to last non-blank character of line
-        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+        if let Some(line_text) = self
+            .current_buffer()
+            .get_line(self.current_window().cursor.line)
+        {
             let chars: Vec<char> = line_text.chars().collect();
             if chars.is_empty() {
                 self.current_window_mut().cursor.col = 0;
@@ -3458,7 +3825,8 @@ note: this is a help buffer - :q to return, or edit as you like!
                                 }
                             }
 
-                            self.current_window_mut().cursor.line = line.min(line_count.saturating_sub(1));
+                            self.current_window_mut().cursor.line =
+                                line.min(line_count.saturating_sub(1));
                             self.current_window_mut().cursor.col = col;
                             self.clamp_cursor();
                             return;
@@ -3473,7 +3841,9 @@ note: this is a help buffer - :q to return, or edit as you like!
 
         // Reached end of buffer
         self.current_window_mut().cursor.line = line_count.saturating_sub(1);
-        let last_line_len = self.current_buffer().line_len(self.current_window().cursor.line);
+        let last_line_len = self
+            .current_buffer()
+            .line_len(self.current_window().cursor.line);
         self.current_window_mut().cursor.col = last_line_len.saturating_sub(1);
         self.clamp_cursor();
     }
@@ -3502,7 +3872,8 @@ note: this is a help buffer - :q to return, or edit as you like!
                             }
 
                             self.current_window_mut().cursor.line = line;
-                            self.current_window_mut().cursor.col = col.min(chars.len().saturating_sub(1));
+                            self.current_window_mut().cursor.col =
+                                col.min(chars.len().saturating_sub(1));
                             self.clamp_cursor();
                             return;
                         }
@@ -3528,7 +3899,10 @@ note: this is a help buffer - :q to return, or edit as you like!
         // Store for repeat
         self.last_find = Some((ch, direction));
 
-        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+        if let Some(line_text) = self
+            .current_buffer()
+            .get_line(self.current_window().cursor.line)
+        {
             let chars: Vec<char> = line_text.chars().collect();
             if chars.is_empty() {
                 return;
@@ -3607,8 +3981,6 @@ note: this is a help buffer - :q to return, or edit as you like!
         }
     }
 
-
-
     fn move_paragraph_forward(&mut self) {
         let mut line = self.current_window().cursor.line + 1;
         let line_count = self.current_buffer().line_count();
@@ -3680,7 +4052,10 @@ note: this is a help buffer - :q to return, or edit as you like!
     }
 
     fn move_to_matching_bracket(&mut self) {
-        if let Some(line_text) = self.current_buffer().get_line(self.current_window().cursor.line) {
+        if let Some(line_text) = self
+            .current_buffer()
+            .get_line(self.current_window().cursor.line)
+        {
             let chars: Vec<char> = line_text.chars().collect();
             if self.current_window().cursor.col >= chars.len() {
                 return;
@@ -3693,7 +4068,11 @@ note: this is a help buffer - :q to return, or edit as you like!
                 if current_char == *open {
                     // Search forward for closing bracket
                     let mut depth = 0;
-                    for (i, &ch) in chars.iter().enumerate().skip(self.current_window().cursor.col) {
+                    for (i, &ch) in chars
+                        .iter()
+                        .enumerate()
+                        .skip(self.current_window().cursor.col)
+                    {
                         if ch == *open {
                             depth += 1;
                         } else if ch == *close {
@@ -3760,11 +4139,24 @@ note: this is a help buffer - :q to return, or edit as you like!
                 (0, self.terminal.size().0 as usize)
             };
 
-            let line_num_width = self.config.line_number_width(self.current_buffer().line_count());
-            let screen_row = self.current_window().cursor.line.saturating_sub(self.current_window().viewport.offset_line);
-            let screen_col = padding + line_num_width + self.current_window().cursor.col.saturating_sub(self.current_window().viewport.offset_col);
+            let line_num_width = self
+                .config
+                .line_number_width(self.current_buffer().line_count());
+            let screen_row = self
+                .current_window()
+                .cursor
+                .line
+                .saturating_sub(self.current_window().viewport.offset_line);
+            let screen_col = padding
+                + line_num_width
+                + self
+                    .current_window()
+                    .cursor
+                    .col
+                    .saturating_sub(self.current_window().viewport.offset_col);
 
-            self.terminal.move_cursor(screen_col as u16, screen_row as u16)?;
+            self.terminal
+                .move_cursor(screen_col as u16, screen_row as u16)?;
         }
 
         self.terminal.show_cursor()?;
@@ -3806,7 +4198,11 @@ note: this is a help buffer - :q to return, or edit as you like!
                 // and just show the selected row with different background
                 let item = &m.item;
                 let display = if item.len() < width as usize {
-                    format!("{}{}", item, " ".repeat(width as usize - item.chars().count()))
+                    format!(
+                        "{}{}",
+                        item,
+                        " ".repeat(width as usize - item.chars().count())
+                    )
                 } else {
                     item.chars().take(width as usize).collect()
                 };
@@ -3836,7 +4232,9 @@ note: this is a help buffer - :q to return, or edit as you like!
             (0, width as usize)
         };
 
-        let line_num_width = self.config.line_number_width(self.current_buffer().line_count());
+        let line_num_width = self
+            .config
+            .line_number_width(self.current_buffer().line_count());
         let effective_text_width = text_width.saturating_sub(line_num_width);
 
         let offset_line = self.current_window().viewport.offset_line;
@@ -3874,7 +4272,13 @@ note: this is a help buffer - :q to return, or edit as you like!
         Ok(())
     }
 
-    fn render_line_content(&mut self, line: usize, line_text: &str, start_col: usize, available_width: usize) -> Result<()> {
+    fn render_line_content(
+        &mut self,
+        line: usize,
+        line_text: &str,
+        start_col: usize,
+        available_width: usize,
+    ) -> Result<()> {
         let chars: Vec<char> = line_text.chars().collect();
 
         // Build a set of search match positions for this line
@@ -3889,23 +4293,31 @@ note: this is a help buffer - :q to return, or edit as you like!
         };
 
         // Build substitute preview matches for this line
-        let substitute_matches: Vec<(usize, usize)> = if let Some(ref pattern) = self.substitute_preview_pattern {
-            if let Some((start_line, end_line)) = self.substitute_preview_range {
-                if line >= start_line && line <= end_line {
-                    self.find_all_matches_in_line(line_text, pattern)
+        let substitute_matches: Vec<(usize, usize)> =
+            if let Some(ref pattern) = self.substitute_preview_pattern {
+                if let Some((start_line, end_line)) = self.substitute_preview_range {
+                    if line >= start_line && line <= end_line {
+                        self.find_all_matches_in_line(line_text, pattern)
+                    } else {
+                        Vec::new()
+                    }
                 } else {
                     Vec::new()
                 }
             } else {
                 Vec::new()
-            }
-        } else {
-            Vec::new()
-        };
+            };
 
         // Check if we're in visual mode with selection
-        let in_visual_mode = matches!(self.mode, Mode::Visual | Mode::VisualLine | Mode::VisualBlock);
-        let selection_ref = if in_visual_mode { self.selection.as_ref() } else { None };
+        let in_visual_mode = matches!(
+            self.mode,
+            Mode::Visual | Mode::VisualLine | Mode::VisualBlock
+        );
+        let selection_ref = if in_visual_mode {
+            self.selection.as_ref()
+        } else {
+            None
+        };
 
         // If no highlighting needed at all, render normally for efficiency
         if selection_ref.is_none() && search_matches.is_empty() && substitute_matches.is_empty() {
@@ -3918,20 +4330,32 @@ note: this is a help buffer - :q to return, or edit as you like!
         }
 
         // Render with highlighting (selection, search, and/or substitute preview)
-        for (col_idx, &ch) in chars.iter().enumerate().skip(start_col).take(available_width) {
+        for (col_idx, &ch) in chars
+            .iter()
+            .enumerate()
+            .skip(start_col)
+            .take(available_width)
+        {
             let is_selected = selection_ref.map_or(false, |s| s.contains(line, col_idx));
-            let is_substitute_match = substitute_matches.iter().any(|(start, end)| col_idx >= *start && col_idx < *end);
-            let is_search_match = search_matches.iter().any(|(start, end)| col_idx >= *start && col_idx < *end);
+            let is_substitute_match = substitute_matches
+                .iter()
+                .any(|(start, end)| col_idx >= *start && col_idx < *end);
+            let is_search_match = search_matches
+                .iter()
+                .any(|(start, end)| col_idx >= *start && col_idx < *end);
 
             if is_selected {
                 // Visual selection takes priority - blue background
-                self.terminal.print_with_bg(&ch.to_string(), Color::White, Color::Blue)?;
+                self.terminal
+                    .print_with_bg(&ch.to_string(), Color::White, Color::Blue)?;
             } else if is_substitute_match {
                 // Substitute preview match - magenta/red background
-                self.terminal.print_with_bg(&ch.to_string(), Color::White, Color::Magenta)?;
+                self.terminal
+                    .print_with_bg(&ch.to_string(), Color::White, Color::Magenta)?;
             } else if is_search_match {
                 // Search match - yellow background
-                self.terminal.print_with_bg(&ch.to_string(), Color::Black, Color::Yellow)?;
+                self.terminal
+                    .print_with_bg(&ch.to_string(), Color::Black, Color::Yellow)?;
             } else {
                 // Normal rendering
                 self.terminal.print(&ch.to_string())?;
@@ -4055,7 +4479,8 @@ note: this is a help buffer - :q to return, or edit as you like!
             &self.message,
         );
 
-        self.terminal.print_with_bg(&command_bar_text, Color::White, Color::DarkGrey)?;
+        self.terminal
+            .print_with_bg(&command_bar_text, Color::White, Color::DarkGrey)?;
 
         Ok(())
     }
@@ -4084,8 +4509,13 @@ note: this is a help buffer - :q to return, or edit as you like!
 
             if let Some(cmd_start) = after_comma.find(|c: char| !c.is_ascii_digit()) {
                 let end_str = &after_comma[..cmd_start];
-                if let (Ok(start), Ok(end)) = (before_comma.parse::<usize>(), end_str.parse::<usize>()) {
-                    (Some((start.saturating_sub(1), end.saturating_sub(1))), &after_comma[cmd_start..])
+                if let (Ok(start), Ok(end)) =
+                    (before_comma.parse::<usize>(), end_str.parse::<usize>())
+                {
+                    (
+                        Some((start.saturating_sub(1), end.saturating_sub(1))),
+                        &after_comma[cmd_start..],
+                    )
                 } else {
                     (None, cmd.as_str())
                 }
@@ -4096,7 +4526,10 @@ note: this is a help buffer - :q to return, or edit as you like!
             // Single line number prefix
             let line_str = &cmd[..first_non_digit];
             if let Ok(line) = line_str.parse::<usize>() {
-                (Some((line.saturating_sub(1), line.saturating_sub(1))), &cmd[first_non_digit..])
+                (
+                    Some((line.saturating_sub(1), line.saturating_sub(1))),
+                    &cmd[first_non_digit..],
+                )
             } else {
                 (None, cmd.as_str())
             }
@@ -4110,7 +4543,7 @@ note: this is a help buffer - :q to return, or edit as you like!
             // Determine the default range: visual selection > current line
             let default_range = self.visual_cmd_range.unwrap_or((
                 self.current_window().cursor.line,
-                self.current_window().cursor.line
+                self.current_window().cursor.line,
             ));
 
             if let Some(pattern_end) = rest[pattern_start..].find('/') {

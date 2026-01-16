@@ -65,7 +65,10 @@ pub fn detect_file_type(path: &std::path::Path, content: &str) -> FileType {
     for line in content.lines().take(5).chain(content.lines().rev().take(5)) {
         if let Some(ft_pos) = line.find("ft=") {
             let modeline = &line[ft_pos + 3..];
-            let filetype = modeline.split(|c: char| c.is_whitespace() || c == ':').next().unwrap_or("");
+            let filetype = modeline
+                .split(|c: char| c.is_whitespace() || c == ':')
+                .next()
+                .unwrap_or("");
             match filetype {
                 "rust" => return FileType::Rust,
                 "python" => return FileType::Python,

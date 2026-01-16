@@ -176,7 +176,8 @@ fn grep_files(base_path: &PathBuf, pattern: &str) -> Vec<String> {
                                 } else {
                                     line.to_string()
                                 };
-                                results.push(format!("{}:{}:{}",
+                                results.push(format!(
+                                    "{}:{}:{}",
                                     relative.display(),
                                     line_num + 1,
                                     truncated_line.trim()
@@ -198,14 +199,45 @@ fn grep_files(base_path: &PathBuf, pattern: &str) -> Vec<String> {
 /// Check if file is likely binary based on extension
 fn is_likely_binary(path: &std::path::Path) -> bool {
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-        matches!(ext.to_lowercase().as_str(),
-            "png" | "jpg" | "jpeg" | "gif" | "ico" | "bmp" | "webp" |
-            "pdf" | "zip" | "tar" | "gz" | "rar" | "7z" |
-            "exe" | "dll" | "so" | "dylib" | "a" |
-            "o" | "obj" | "class" | "pyc" | "pyo" |
-            "wasm" | "ttf" | "otf" | "woff" | "woff2" |
-            "mp3" | "mp4" | "avi" | "mov" | "mkv" | "webm" |
-            "sqlite" | "db" | "swp"
+        matches!(
+            ext.to_lowercase().as_str(),
+            "png"
+                | "jpg"
+                | "jpeg"
+                | "gif"
+                | "ico"
+                | "bmp"
+                | "webp"
+                | "pdf"
+                | "zip"
+                | "tar"
+                | "gz"
+                | "rar"
+                | "7z"
+                | "exe"
+                | "dll"
+                | "so"
+                | "dylib"
+                | "a"
+                | "o"
+                | "obj"
+                | "class"
+                | "pyc"
+                | "pyo"
+                | "wasm"
+                | "ttf"
+                | "otf"
+                | "woff"
+                | "woff2"
+                | "mp3"
+                | "mp4"
+                | "avi"
+                | "mov"
+                | "mkv"
+                | "webm"
+                | "sqlite"
+                | "db"
+                | "swp"
         )
     } else {
         false

@@ -22,7 +22,7 @@ impl Window {
 
 #[derive(Debug, Clone)]
 pub enum Layout {
-    Leaf(usize), // Window index
+    Leaf(usize),             // Window index
     Horizontal(Vec<Layout>), // Split vertically (side-by-side)
     Vertical(Vec<Layout>),   // Split horizontally (top-bottom)
 }

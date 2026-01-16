@@ -12,17 +12,17 @@ pub enum Action {
     MoveWordForward,
     MoveWordBackward,
     MoveWordEnd,
-    MoveWordEndBack,       // ge (end of previous word)
-    MoveWordForwardBig,    // W
-    MoveWordBackwardBig,   // B
-    MoveWordEndBig,        // E
-    MoveWordEndBackBig,    // gE (end of previous WORD)
+    MoveWordEndBack,     // ge (end of previous word)
+    MoveWordForwardBig,  // W
+    MoveWordBackwardBig, // B
+    MoveWordEndBig,      // E
+    MoveWordEndBackBig,  // gE (end of previous WORD)
     MoveLineStart,
     MoveLineFirstNonBlank, // ^
     MoveLineEnd,
-    MoveLineEndNonBlank,   // g_ (last non-blank character)
-    MoveLineStartDisplay,  // g0 (first character of screen line)
-    MoveLineEndDisplay,    // g$ (last character of screen line)
+    MoveLineEndNonBlank,  // g_ (last non-blank character)
+    MoveLineStartDisplay, // g0 (first character of screen line)
+    MoveLineEndDisplay,   // g$ (last character of screen line)
     MoveFileStart,
     MoveFileEnd,
     MoveParagraphForward,  // }
@@ -70,50 +70,50 @@ pub enum Action {
     Redo,
 
     // Operators
-    Delete,              // d (waits for motion)
-    DeleteToEnd,         // D
-    Change,              // c (waits for motion)
-    ChangeToEnd,         // C
-    ChangeLine,          // cc
-    Yank,                // y (waits for motion)
-    YankLine,            // yy
-    YankToEnd,           // Y
-    Paste,               // p
-    PasteBefore,         // P
-    Join,                // J
-    JoinNoSpace,         // gJ
-    Replace(char),       // r
-    MakeLowercase,       // gu (waits for motion)
-    MakeUppercase,       // gU (waits for motion)
-    ToggleCase,          // g~ (waits for motion)
-    Indent,              // > (waits for motion)
-    Dedent,              // < (waits for motion)
-    AutoIndent,          // = (waits for motion)
+    Delete,        // d (waits for motion)
+    DeleteToEnd,   // D
+    Change,        // c (waits for motion)
+    ChangeToEnd,   // C
+    ChangeLine,    // cc
+    Yank,          // y (waits for motion)
+    YankLine,      // yy
+    YankToEnd,     // Y
+    Paste,         // p
+    PasteBefore,   // P
+    Join,          // J
+    JoinNoSpace,   // gJ
+    Replace(char), // r
+    MakeLowercase, // gu (waits for motion)
+    MakeUppercase, // gU (waits for motion)
+    ToggleCase,    // g~ (waits for motion)
+    Indent,        // > (waits for motion)
+    Dedent,        // < (waits for motion)
+    AutoIndent,    // = (waits for motion)
 
     // Commands
     SaveFile,
     Quit,
 
     // Search
-    SearchForward,       // / (initiate forward search)
-    SearchBackward,      // ? (initiate backward search)
-    SearchNext,          // n (repeat last search)
-    SearchPrevious,      // N (repeat last search in opposite direction)
-    SearchWordForward,   // * (search word under cursor forward)
-    SearchWordBackward,  // # (search word under cursor backward)
+    SearchForward,      // / (initiate forward search)
+    SearchBackward,     // ? (initiate backward search)
+    SearchNext,         // n (repeat last search)
+    SearchPrevious,     // N (repeat last search in opposite direction)
+    SearchWordForward,  // * (search word under cursor forward)
+    SearchWordBackward, // # (search word under cursor backward)
 
     // Marks
-    SetMark(char),       // m{char} (set mark)
-    JumpToMark(char),    // '{char} (jump to mark line)
+    SetMark(char),         // m{char} (set mark)
+    JumpToMark(char),      // '{char} (jump to mark line)
     JumpToMarkExact(char), // `{char} (jump to mark exact position)
-    JumpToChangeNext,    // g; (jump to next change)
-    JumpToChangePrev,    // g, (jump to previous change)
-    JumpBack,            // Ctrl-o
-    JumpForward,         // Ctrl-i
+    JumpToChangeNext,      // g; (jump to next change)
+    JumpToChangePrev,      // g, (jump to previous change)
+    JumpBack,              // Ctrl-o
+    JumpForward,           // Ctrl-i
 
     // Other
-    RepeatLastChange,    // . (dot command)
-    OpenFileFinder,      // Ctrl-p (file fuzzy finder)
+    RepeatLastChange, // . (dot command)
+    OpenFileFinder,   // Ctrl-p (file fuzzy finder)
     None,
 }
 
@@ -126,7 +126,7 @@ pub fn map_key(key: KeyEvent, mode: &crate::mode::Mode) -> Action {
         Mode::Replace => map_replace_mode_key(key),
         Mode::Visual | Mode::VisualLine | Mode::VisualBlock => map_visual_mode_key(key),
         Mode::Command => Action::None, // Command mode has its own input handling
-        Mode::Search => Action::None, // Search mode has its own input handling
+        Mode::Search => Action::None,  // Search mode has its own input handling
         Mode::FuzzyFind => Action::None, // FuzzyFind mode has its own input handling
     }
 }
@@ -136,12 +136,18 @@ fn map_normal_mode_key(key: KeyEvent) -> Action {
         // Page/screen movement (check Ctrl keys first)
         KeyCode::Char('b') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::MovePageUp,
         KeyCode::Char('f') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::MovePageDown,
-        KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::MoveHalfPageUp,
-        KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::MoveHalfPageDown,
+        KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            Action::MoveHalfPageUp
+        }
+        KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            Action::MoveHalfPageDown
+        }
         KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::Redo,
         KeyCode::Char('o') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::JumpBack,
         KeyCode::Char('i') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::JumpForward,
-        KeyCode::Char('p') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::OpenFileFinder,
+        KeyCode::Char('p') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            Action::OpenFileFinder
+        }
 
         // Movement
         KeyCode::Char('h') => Action::MoveLeft,

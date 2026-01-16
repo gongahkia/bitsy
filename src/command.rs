@@ -16,9 +16,19 @@ pub enum Command {
     ForceQuit,
     Edit(String),
     GoToLine(usize),
-    Substitute { pattern: String, replacement: String, global: bool, range: Option<Range> },
-    Set { option: String, value: Option<String> },
-    Delete { range: Option<Range> },
+    Substitute {
+        pattern: String,
+        replacement: String,
+        global: bool,
+        range: Option<Range>,
+    },
+    Set {
+        option: String,
+        value: Option<String>,
+    },
+    Delete {
+        range: Option<Range>,
+    },
     Help(Option<String>),
     BufferNext,
     BufferPrevious,
@@ -131,7 +141,13 @@ pub fn parse_command(input: &str) -> Result<Command> {
 fn parse_range(input: &str) -> (Option<Range>, &str) {
     // Handle % (all lines)
     if input.starts_with('%') {
-        return (Some(Range { start: 1, end: usize::MAX }), &input[1..]);
+        return (
+            Some(Range {
+                start: 1,
+                end: usize::MAX,
+            }),
+            &input[1..],
+        );
     }
 
     // Handle line,line format (e.g., 1,10)
@@ -142,7 +158,8 @@ fn parse_range(input: &str) -> (Option<Range>, &str) {
         // Find where the command starts (after the range)
         if let Some(cmd_start) = after_comma.find(|c: char| !c.is_ascii_digit()) {
             let end_str = &after_comma[..cmd_start];
-            if let (Ok(start), Ok(end)) = (before_comma.parse::<usize>(), end_str.parse::<usize>()) {
+            if let (Ok(start), Ok(end)) = (before_comma.parse::<usize>(), end_str.parse::<usize>())
+            {
                 return (Some(Range { start, end }), &after_comma[cmd_start..]);
             }
         }
@@ -152,7 +169,13 @@ fn parse_range(input: &str) -> (Option<Range>, &str) {
     if let Some(first_non_digit) = input.find(|c: char| !c.is_ascii_digit()) {
         let line_str = &input[..first_non_digit];
         if let Ok(line) = line_str.parse::<usize>() {
-            return (Some(Range { start: line, end: line }), &input[first_non_digit..]);
+            return (
+                Some(Range {
+                    start: line,
+                    end: line,
+                }),
+                &input[first_non_digit..],
+            );
         }
     }
 
@@ -165,12 +188,16 @@ fn parse_substitute(input: &str, range: Option<Range>) -> Result<Command> {
     // Parse s/pattern/replacement/flags
     let parts: Vec<&str> = input.split('/').collect();
     if parts.len() < 2 {
-        return Err(Error::ParseError("Substitute syntax: s/pattern/replacement/[g]".to_string()));
+        return Err(Error::ParseError(
+            "Substitute syntax: s/pattern/replacement/[g]".to_string(),
+        ));
     }
 
     let pattern = parts[0].to_string();
     if pattern.is_empty() {
-        return Err(Error::ParseError("Substitute pattern cannot be empty".to_string()));
+        return Err(Error::ParseError(
+            "Substitute pattern cannot be empty".to_string(),
+        ));
     }
 
     let replacement = parts[1].to_string();

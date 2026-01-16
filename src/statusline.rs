@@ -65,7 +65,14 @@ impl StatusLine {
             Mode::Normal => (Color::Blue, Color::White),
             Mode::Insert => (Color::Green, Color::Black),
             Mode::Visual | Mode::VisualLine | Mode::VisualBlock => (Color::Magenta, Color::White),
-            Mode::Command => (Color::Rgb { r: 214, g: 93, b: 14 }, Color::White),
+            Mode::Command => (
+                Color::Rgb {
+                    r: 214,
+                    g: 93,
+                    b: 14,
+                },
+                Color::White,
+            ),
             Mode::Search => (Color::Yellow, Color::Black),
             _ => (Color::DarkGrey, Color::White),
         };
