@@ -1,5 +1,6 @@
 // Text buffer implementation using ropey
 
+use encoding_rs::Encoding;
 use ropey::Rope;
 use std::collections::HashMap;
 use std::fs;
@@ -9,44 +10,7 @@ use crate::error::{Error, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LineEnding {
-    LF,   // Unix/Linux/macOS: \n
-    CRLF, // Windows: \r\n
-    CR,   // Old Mac: \r
-}
-
-impl LineEnding {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            LineEnding::LF => "\n",
-            LineEnding::CRLF => "\r\n",
-            LineEnding::CR => "\r",
-        }
-    }
-
-    pub fn detect(content: &str) -> Self {
-        // Check for Windows line endings first (most specific)
-        if content.contains("\r\n") {
-            LineEnding::CRLF
-        } else if content.contains('\r') {
-            LineEnding::CR
-        } else {
-            // Default to LF (Unix/Linux/macOS)
-            LineEnding::LF
-        }
-    }
-}
-
-impl Default for LineEnding {
-    fn default() -> Self {
-        // Default to platform-specific line ending
-        #[cfg(windows)]
-        return LineEnding::CRLF;
-
-        #[cfg(not(windows))]
-        LineEnding::LF
-    }
-}
-
+//...
 #[derive(Debug, Clone)]
 pub struct Buffer {
     rope: Rope,
@@ -54,6 +18,7 @@ pub struct Buffer {
     modified: bool,
     line_ending: LineEnding,
     marks: HashMap<char, (usize, usize)>,
+    encoding: Option<&'static Encoding>,
 }
 
 impl Buffer {
@@ -64,6 +29,7 @@ impl Buffer {
             modified: false,
             line_ending: LineEnding::default(),
             marks: HashMap::new(),
+            encoding: None,
         }
     }
 
@@ -74,6 +40,7 @@ impl Buffer {
             modified: false,
             line_ending: LineEnding::default(),
             marks: HashMap::new(),
+            encoding: None,
         }
     }
 
