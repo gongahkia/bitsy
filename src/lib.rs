@@ -9,6 +9,7 @@ pub mod cursor;
 pub mod editor;
 pub mod error;
 pub mod filetype;
+pub mod fuzzy;
 pub mod keymap;
 pub mod mode;
 pub mod motion;
