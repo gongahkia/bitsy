@@ -6,8 +6,6 @@
 ## Phase 13: File Operations (7 tasks)
 
 ## Phase 18: Fuzzy Finder (6 tasks)
-(B) 2026-01-09 Create file fuzzy finder (Ctrl-p or :Files) +fuzzy @implementation
-(B) 2026-01-09 Build buffer fuzzy finder (:Buffers) +fuzzy @implementation
 (B) 2026-01-09 Implement grep/text search in files (:Rg, :Grep) +fuzzy @implementation
 (C) 2026-01-09 Create fuzzy finder preview pane +fuzzy @implementation
 
