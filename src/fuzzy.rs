@@ -12,6 +12,7 @@ pub struct FuzzyMatch {
 }
 
 /// Fuzzy matcher with fzf-style scoring
+#[derive(Debug)]
 pub struct FuzzyMatcher {
     case_sensitive: bool,
 }

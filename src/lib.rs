@@ -10,6 +10,7 @@ pub mod editor;
 pub mod error;
 pub mod filetype;
 pub mod fuzzy;
+pub mod fuzzy_finder;
 pub mod keymap;
 pub mod mode;
 pub mod motion;

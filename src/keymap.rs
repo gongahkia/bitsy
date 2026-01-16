@@ -113,6 +113,7 @@ pub enum Action {
 
     // Other
     RepeatLastChange,    // . (dot command)
+    OpenFileFinder,      // Ctrl-p (file fuzzy finder)
     None,
 }
 
@@ -126,6 +127,7 @@ pub fn map_key(key: KeyEvent, mode: &crate::mode::Mode) -> Action {
         Mode::Visual | Mode::VisualLine | Mode::VisualBlock => map_visual_mode_key(key),
         Mode::Command => Action::None, // Command mode has its own input handling
         Mode::Search => Action::None, // Search mode has its own input handling
+        Mode::FuzzyFind => Action::None, // FuzzyFind mode has its own input handling
     }
 }
 
@@ -139,6 +141,7 @@ fn map_normal_mode_key(key: KeyEvent) -> Action {
         KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::Redo,
         KeyCode::Char('o') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::JumpBack,
         KeyCode::Char('i') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::JumpForward,
+        KeyCode::Char('p') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::OpenFileFinder,
 
         // Movement
         KeyCode::Char('h') => Action::MoveLeft,

@@ -30,6 +30,8 @@ pub enum Command {
     Registers,
     Marks,
     Goyo,
+    Files,
+    Buffers,
     Unknown(String),
 }
 
@@ -106,6 +108,10 @@ pub fn parse_command(input: &str) -> Result<Command> {
                 Ok(Command::Marks)
             } else if command == "Goyo" || command == "Zen" {
                 Ok(Command::Goyo)
+            } else if command == "Files" || command == "files" {
+                Ok(Command::Files)
+            } else if command == "Buffers" || command == "buffers" || command == "buf" {
+                Ok(Command::Buffers)
             } else {
                 Ok(Command::Unknown(command.to_string()))
             }

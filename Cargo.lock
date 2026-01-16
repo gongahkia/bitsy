@@ -135,6 +135,7 @@ dependencies = [
  "serde",
  "tiny_http",
  "toml",
+ "walkdir",
  "webbrowser",
 ]
 

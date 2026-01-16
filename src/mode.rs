@@ -10,6 +10,7 @@ pub enum Mode {
     VisualBlock,
     Command,
     Search,
+    FuzzyFind,
 }
 
 impl Mode {
@@ -23,6 +24,7 @@ impl Mode {
             Mode::VisualBlock => "VISUAL BLOCK",
             Mode::Command => "COMMAND",
             Mode::Search => "SEARCH",
+            Mode::FuzzyFind => "FINDER",
         }
     }
 }

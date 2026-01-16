@@ -49,6 +49,9 @@ notify = "6.1.1"
 # Clipboard support
 arboard = "3.4"
 
+# Directory traversal
+walkdir = "2.5"
+
 # Platform-specific dependencies
 [target.'cfg(unix)'.dependencies]
 # Unix-specific dependencies can be added here if needed

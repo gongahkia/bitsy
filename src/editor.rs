@@ -20,6 +20,7 @@ use crate::command_bar::CommandBar;
 use crate::config::{Config, LineNumberMode};
 use crate::cursor::Cursor;
 use crate::error::{Error, Result};
+use crate::fuzzy_finder::FuzzyFinder;
 use crate::keymap::{map_key, Action};
 use crate::mode::Mode;
 use crate::register::{RegisterContent, RegisterManager};
@@ -100,6 +101,8 @@ pub struct Editor {
     file_watcher: Option<RecommendedWatcher>,
     file_events: Option<Receiver<notify::Result<notify::Event>>>,
     file_changed_externally: bool,
+    // Fuzzy finder
+    fuzzy_finder: Option<FuzzyFinder>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -200,6 +203,8 @@ impl Editor {
             file_watcher: None,
             file_events: None,
             file_changed_externally: false,
+            // Fuzzy finder
+            fuzzy_finder: None,
         })
     }
 
@@ -505,6 +510,8 @@ impl Editor {
             self.handle_command_mode_key(key)?;
         } else if self.mode == Mode::Search {
             self.handle_search_mode_key(key)?;
+        } else if self.mode == Mode::FuzzyFind {
+            self.handle_fuzzy_find_key(key)?;
         } else {
             // Handle mark operations (m, ', `)
             if self.mode == Mode::Normal && self.waiting_for_mark.is_some() {
@@ -1260,6 +1267,12 @@ note: this is a help buffer - :q to return, or edit as you like!
                     self.message = Some("Zen mode disabled".to_string());
                 }
             }
+            Command::Files => {
+                self.open_file_finder();
+            }
+            Command::Buffers => {
+                self.open_buffer_finder();
+            }
             Command::Unknown(cmd) => {
                 self.message = Some(format!("Unknown command: {}", cmd));
             }
@@ -1298,6 +1311,76 @@ note: this is a help buffer - :q to return, or edit as you like!
                 format!("No help for '{}'. Try :help motions, :help operators, :help commands", topic)
             }
         }
+    }
+
+    fn open_file_finder(&mut self) {
+        let base_path = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        self.fuzzy_finder = Some(FuzzyFinder::files(&base_path));
+        self.mode = Mode::FuzzyFind;
+    }
+
+    fn open_buffer_finder(&mut self) {
+        let buffer_names: Vec<String> = self
+            .buffers
+            .iter()
+            .map(|b| b.file_name())
+            .collect();
+        self.fuzzy_finder = Some(FuzzyFinder::buffers(buffer_names));
+        self.mode = Mode::FuzzyFind;
+    }
+
+    fn handle_fuzzy_find_key(&mut self, key: KeyEvent) -> Result<()> {
+        match key.code {
+            KeyCode::Esc => {
+                self.fuzzy_finder = None;
+                self.mode = Mode::Normal;
+            }
+            KeyCode::Enter => {
+                if let Some(ref finder) = self.fuzzy_finder {
+                    if let Some(selected) = finder.selected_item() {
+                        let selected = selected.to_string();
+                        let finder_type = finder.finder_type;
+                        self.fuzzy_finder = None;
+                        self.mode = Mode::Normal;
+
+                        match finder_type {
+                            crate::fuzzy_finder::FinderType::Files => {
+                                self.open(&selected)?;
+                            }
+                            crate::fuzzy_finder::FinderType::Buffers => {
+                                // Find buffer index by name
+                                if let Some(idx) = self.buffers.iter().position(|b| b.file_name() == selected) {
+                                    self.windows[self.active_window].buffer_index = idx;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            KeyCode::Up | KeyCode::BackTab => {
+                if let Some(ref mut finder) = self.fuzzy_finder {
+                    finder.select_prev();
+                }
+            }
+            KeyCode::Down | KeyCode::Tab => {
+                if let Some(ref mut finder) = self.fuzzy_finder {
+                    finder.select_next();
+                }
+            }
+            KeyCode::Backspace => {
+                if let Some(ref mut finder) = self.fuzzy_finder {
+                    finder.pop_char();
+                }
+            }
+            KeyCode::Char(c) => {
+                if let Some(ref mut finder) = self.fuzzy_finder {
+                    finder.push_char(c);
+                }
+            }
+            _ => {}
+        }
+        Ok(())
     }
 
     fn execute_search(&mut self) -> Result<()> {
@@ -2869,6 +2952,10 @@ note: this is a help buffer - :q to return, or edit as you like!
                 }
             }
 
+            Action::OpenFileFinder => {
+                self.open_file_finder();
+            }
+
             Action::Quit => {
                 if !self.current_buffer().is_modified() {
                     self.should_quit = true;
@@ -3615,8 +3702,13 @@ note: this is a help buffer - :q to return, or edit as you like!
         // Hide cursor during render to prevent flicker
         self.terminal.hide_cursor()?;
 
-        // Render buffer content
-        self.render_buffer()?;
+        // Check if we're in fuzzy find mode
+        if self.mode == Mode::FuzzyFind && self.fuzzy_finder.is_some() {
+            self.render_fuzzy_finder()?;
+        } else {
+            // Render buffer content
+            self.render_buffer()?;
+        }
 
         // Render status line
         self.render_status_line()?;
@@ -3624,23 +3716,84 @@ note: this is a help buffer - :q to return, or edit as you like!
         // Render command line or message
         self.render_command_line()?;
 
-        // Position cursor (account for line number gutter and zen mode padding)
-        let (padding, _) = if self.zen_mode {
-            let zen_width = self.config.zen_mode_width;
-            let padding = (self.terminal.size().0 as usize).saturating_sub(zen_width) / 2;
-            (padding, zen_width)
+        // Position cursor
+        if self.mode == Mode::FuzzyFind {
+            // Position cursor in the input area
+            if let Some(ref finder) = self.fuzzy_finder {
+                let prompt_len = finder.prompt().len();
+                let cursor_col = prompt_len + finder.query.len();
+                self.terminal.move_cursor(cursor_col as u16, 0)?;
+            }
         } else {
-            (0, self.terminal.size().0 as usize)
-        };
+            // Position cursor (account for line number gutter and zen mode padding)
+            let (padding, _) = if self.zen_mode {
+                let zen_width = self.config.zen_mode_width;
+                let padding = (self.terminal.size().0 as usize).saturating_sub(zen_width) / 2;
+                (padding, zen_width)
+            } else {
+                (0, self.terminal.size().0 as usize)
+            };
 
-        let line_num_width = self.config.line_number_width(self.current_buffer().line_count());
-        let screen_row = self.current_window().cursor.line.saturating_sub(self.current_window().viewport.offset_line);
-        let screen_col = padding + line_num_width + self.current_window().cursor.col.saturating_sub(self.current_window().viewport.offset_col);
-        
-        self.terminal.move_cursor(screen_col as u16, screen_row as u16)?;
+            let line_num_width = self.config.line_number_width(self.current_buffer().line_count());
+            let screen_row = self.current_window().cursor.line.saturating_sub(self.current_window().viewport.offset_line);
+            let screen_col = padding + line_num_width + self.current_window().cursor.col.saturating_sub(self.current_window().viewport.offset_col);
+
+            self.terminal.move_cursor(screen_col as u16, screen_row as u16)?;
+        }
 
         self.terminal.show_cursor()?;
         self.terminal.flush()?;
+
+        Ok(())
+    }
+
+    fn render_fuzzy_finder(&mut self) -> Result<()> {
+        let (width, height) = self.terminal.size();
+        let viewport_height = (height as usize).saturating_sub(2);
+
+        if let Some(ref finder) = self.fuzzy_finder {
+            // Render input line at top
+            self.terminal.move_cursor(0, 0)?;
+            let prompt = finder.prompt();
+            self.terminal.print_colored(prompt, Color::Cyan)?;
+            self.terminal.print(&finder.query)?;
+            // Clear rest of line
+            let used = prompt.len() + finder.query.len();
+            if used < width as usize {
+                self.terminal.print(&" ".repeat(width as usize - used))?;
+            }
+
+            // Render matches
+            let matches = finder.visible_matches();
+            for (i, m) in matches.iter().take(viewport_height - 1).enumerate() {
+                self.terminal.move_cursor(0, (i + 1) as u16)?;
+
+                let is_selected = i == finder.selected_index;
+                let (bg_color, fg_color) = if is_selected {
+                    (Color::DarkGrey, Color::White)
+                } else {
+                    (Color::Reset, Color::White)
+                };
+
+                // Build the display string with match highlighting
+                // For simplicity, we'll display without inline highlighting for now
+                // and just show the selected row with different background
+                let item = &m.item;
+                let display = if item.len() < width as usize {
+                    format!("{}{}", item, " ".repeat(width as usize - item.chars().count()))
+                } else {
+                    item.chars().take(width as usize).collect()
+                };
+
+                self.terminal.print_with_bg(&display, fg_color, bg_color)?;
+            }
+
+            // Clear remaining lines
+            for i in (matches.len() + 1)..viewport_height {
+                self.terminal.move_cursor(0, i as u16)?;
+                self.terminal.print(&" ".repeat(width as usize))?;
+            }
+        }
 
         Ok(())
     }
