@@ -43,6 +43,9 @@ webbrowser = "1.0"
 encoding_rs = "0.8.34"
 chardetng = "0.1.2"
 
+# File watching
+notify = "6.1.1"
+
 # Clipboard support
 arboard = "3.4"
 

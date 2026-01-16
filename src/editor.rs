@@ -2,11 +2,13 @@
 
 use crossterm::event::{Event, KeyCode, KeyEvent};
 use crossterm::style::Color;
+use notify::{RecommendedWatcher, Watcher};
 use pulldown_cmark::{html, Options, Parser};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{channel, Receiver};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
@@ -94,6 +96,10 @@ pub struct Editor {
     markdown_preview_url: Option<String>,
     markdown_preview_shutdown: Option<Arc<AtomicBool>>,
     zen_mode: bool,
+    // File watcher
+    file_watcher: Option<RecommendedWatcher>,
+    file_events: Option<Receiver<notify::Result<notify::Event>>>,
+    file_changed_externally: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -190,6 +196,10 @@ impl Editor {
             markdown_preview_url: None,
             markdown_preview_shutdown: None,
             zen_mode: false,
+            // File watcher
+            file_watcher: None,
+            file_events: None,
+            file_changed_externally: false,
         })
     }
 
@@ -226,6 +236,35 @@ impl Editor {
         } else {
             self.stop_markdown_preview();
         }
+
+        self.stop_file_watcher(); // Stop watching previous file
+        let path_to_watch = self.current_buffer().file_path().map(|p| p.to_path_buf());
+        if let Some(p) = path_to_watch {
+            if let Err(e) = self.start_file_watcher(&p) {
+                log::error!("Failed to start file watcher: {}", e);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn stop_file_watcher(&mut self) {
+        if let Some(mut watcher) = self.file_watcher.take() {
+            if let Some(path) = self.current_buffer().file_path() {
+                let _ = watcher.unwatch(path);
+            }
+        }
+        self.file_events = None;
+    }
+
+    fn start_file_watcher(&mut self, path: &Path) -> notify::Result<()> {
+        let (tx, rx) = channel();
+        let mut watcher = RecommendedWatcher::new(tx, notify::Config::default())?;
+        watcher.watch(path, notify::RecursiveMode::NonRecursive)?;
+
+        self.file_watcher = Some(watcher);
+        self.file_events = Some(rx);
+        self.file_changed_externally = false;
 
         Ok(())
     }
@@ -385,6 +424,8 @@ impl Editor {
                 break;
             }
 
+            self.check_for_file_changes();
+
             if let Some(event) = self.terminal.read_event()? {
                 self.handle_event(event)?;
                 self.needs_render = true;
@@ -392,6 +433,17 @@ impl Editor {
         }
 
         Ok(())
+    }
+
+    fn check_for_file_changes(&mut self) {
+        if let Some(rx) = &self.file_events {
+            if let Ok(Ok(event)) = rx.try_recv() {
+                if matches!(event.kind, notify::EventKind::Modify(_)) {
+                    self.file_changed_externally = true;
+                    self.message = Some("File changed on disk. Reload? (y/n)".to_string());
+                }
+            }
+        }
     }
 
     fn handle_event(&mut self, event: Event) -> Result<()> {
@@ -409,6 +461,29 @@ impl Editor {
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> Result<()> {
+        if self.file_changed_externally {
+            match key.code {
+                KeyCode::Char('y') | KeyCode::Char('Y') => {
+                    self.file_changed_externally = false;
+                    if let Some(path) = self.current_buffer().file_path().map(|p| p.to_path_buf()) {
+                        if let Err(e) = self.open(&path) {
+                            self.message = Some(format!("Error reloading file: {}", e));
+                        } else {
+                            self.message = Some("File reloaded.".to_string());
+                        }
+                    }
+                }
+                KeyCode::Char('n') | KeyCode::Char('N') => {
+                    self.file_changed_externally = false;
+                    self.message = Some("Reload cancelled.".to_string());
+                }
+                _ => {
+                    // Ignore other keys
+                }
+            }
+            return Ok(());
+        }
+
         // Record key if recording macro
         if self.recording_register.is_some() {
             // Don't record 'q' if it's going to stop recording
@@ -3878,6 +3953,7 @@ note: this is a help buffer - :q to return, or edit as you like!
 impl Drop for Editor {
     fn drop(&mut self) {
         self.stop_markdown_preview();
+        self.stop_file_watcher();
         for buffer in &self.buffers {
             buffer.remove_backup();
         }
