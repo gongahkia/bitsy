@@ -32,6 +32,7 @@ pub enum Command {
     Goyo,
     Files,
     Buffers,
+    Grep(String),
     Unknown(String),
 }
 
@@ -112,6 +113,14 @@ pub fn parse_command(input: &str) -> Result<Command> {
                 Ok(Command::Files)
             } else if command == "Buffers" || command == "buffers" || command == "buf" {
                 Ok(Command::Buffers)
+            } else if let Some(pattern) = command.strip_prefix("Rg ") {
+                Ok(Command::Grep(pattern.trim().to_string()))
+            } else if let Some(pattern) = command.strip_prefix("rg ") {
+                Ok(Command::Grep(pattern.trim().to_string()))
+            } else if let Some(pattern) = command.strip_prefix("Grep ") {
+                Ok(Command::Grep(pattern.trim().to_string()))
+            } else if let Some(pattern) = command.strip_prefix("grep ") {
+                Ok(Command::Grep(pattern.trim().to_string()))
             } else {
                 Ok(Command::Unknown(command.to_string()))
             }

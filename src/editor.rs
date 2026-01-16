@@ -1273,6 +1273,9 @@ note: this is a help buffer - :q to return, or edit as you like!
             Command::Buffers => {
                 self.open_buffer_finder();
             }
+            Command::Grep(pattern) => {
+                self.open_grep_finder(&pattern);
+            }
             Command::Unknown(cmd) => {
                 self.message = Some(format!("Unknown command: {}", cmd));
             }
@@ -1329,6 +1332,12 @@ note: this is a help buffer - :q to return, or edit as you like!
         self.mode = Mode::FuzzyFind;
     }
 
+    fn open_grep_finder(&mut self, pattern: &str) {
+        let base_path = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        self.fuzzy_finder = Some(FuzzyFinder::grep(&base_path, pattern));
+        self.mode = Mode::FuzzyFind;
+    }
+
     fn handle_fuzzy_find_key(&mut self, key: KeyEvent) -> Result<()> {
         match key.code {
             KeyCode::Esc => {
@@ -1353,7 +1362,24 @@ note: this is a help buffer - :q to return, or edit as you like!
                                     self.windows[self.active_window].buffer_index = idx;
                                 }
                             }
-                            _ => {}
+                            crate::fuzzy_finder::FinderType::Grep => {
+                                // Parse file:line:content format
+                                let parts: Vec<&str> = selected.splitn(3, ':').collect();
+                                if parts.len() >= 2 {
+                                    let file = parts[0];
+                                    if let Ok(line_num) = parts[1].parse::<usize>() {
+                                        self.open(file)?;
+                                        // Jump to the line (subtract 1 for 0-indexed)
+                                        let target_line = line_num.saturating_sub(1);
+                                        self.current_window_mut().cursor.line = target_line;
+                                        self.current_window_mut().cursor.col = 0;
+                                        // Center the cursor on screen
+                                        let height = self.current_window().viewport.height;
+                                        let half_height = height / 2;
+                                        self.current_window_mut().viewport.offset_line = target_line.saturating_sub(half_height);
+                                    }
+                                }
+                            }
                         }
                     }
                 }

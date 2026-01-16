@@ -1,6 +1,8 @@
 // Fuzzy finder UI component
 
 use crate::fuzzy::{FuzzyMatch, FuzzyMatcher};
+use regex::Regex;
+use std::fs;
 use std::path::PathBuf;
 use walkdir::WalkDir;
 
@@ -56,6 +58,14 @@ impl FuzzyFinder {
     pub fn buffers(buffer_names: Vec<String>) -> Self {
         let mut finder = Self::new(FinderType::Buffers);
         finder.candidates = buffer_names;
+        finder.update_matches();
+        finder
+    }
+
+    /// Create a new grep finder searching for pattern in files
+    pub fn grep(base_path: &PathBuf, pattern: &str) -> Self {
+        let mut finder = Self::new(FinderType::Grep);
+        finder.candidates = grep_files(base_path, pattern);
         finder.update_matches();
         finder
     }
@@ -127,6 +137,78 @@ impl FuzzyFinder {
             FinderType::Buffers => "Buffers> ",
             FinderType::Grep => "Grep> ",
         }
+    }
+}
+
+/// Search for pattern in files and return results as "file:line:content"
+fn grep_files(base_path: &PathBuf, pattern: &str) -> Vec<String> {
+    let mut results = Vec::new();
+    let max_results = 100;
+
+    let regex = match Regex::new(pattern) {
+        Ok(r) => r,
+        Err(_) => return results, // Invalid regex, return empty
+    };
+
+    for entry in WalkDir::new(base_path)
+        .follow_links(true)
+        .into_iter()
+        .filter_entry(|e| !is_hidden(e) && !is_ignored(e))
+    {
+        if results.len() >= max_results {
+            break;
+        }
+
+        if let Ok(entry) = entry {
+            if entry.file_type().is_file() {
+                // Skip binary files (simple heuristic: check extension)
+                let path = entry.path();
+                if is_likely_binary(path) {
+                    continue;
+                }
+
+                if let Ok(content) = fs::read_to_string(path) {
+                    for (line_num, line) in content.lines().enumerate() {
+                        if regex.is_match(line) {
+                            if let Ok(relative) = path.strip_prefix(base_path) {
+                                let truncated_line = if line.len() > 80 {
+                                    format!("{}...", &line[..77])
+                                } else {
+                                    line.to_string()
+                                };
+                                results.push(format!("{}:{}:{}",
+                                    relative.display(),
+                                    line_num + 1,
+                                    truncated_line.trim()
+                                ));
+                                if results.len() >= max_results {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    results
+}
+
+/// Check if file is likely binary based on extension
+fn is_likely_binary(path: &std::path::Path) -> bool {
+    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+        matches!(ext.to_lowercase().as_str(),
+            "png" | "jpg" | "jpeg" | "gif" | "ico" | "bmp" | "webp" |
+            "pdf" | "zip" | "tar" | "gz" | "rar" | "7z" |
+            "exe" | "dll" | "so" | "dylib" | "a" |
+            "o" | "obj" | "class" | "pyc" | "pyo" |
+            "wasm" | "ttf" | "otf" | "woff" | "woff2" |
+            "mp3" | "mp4" | "avi" | "mov" | "mkv" | "webm" |
+            "sqlite" | "db" | "swp"
+        )
+    } else {
+        false
     }
 }
 
