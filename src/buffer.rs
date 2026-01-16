@@ -49,6 +49,7 @@ impl Default for LineEnding {
 pub struct Buffer {
     rope: Rope,
     file_path: Option<PathBuf>,
+    backup_path: Option<PathBuf>,
     modified: bool,
     line_ending: LineEnding,
     marks: HashMap<char, (usize, usize)>,
@@ -60,6 +61,7 @@ impl Buffer {
         Self {
             rope: Rope::new(),
             file_path: None,
+            backup_path: None,
             modified: false,
             line_ending: LineEnding::default(),
             marks: HashMap::new(),
@@ -71,6 +73,7 @@ impl Buffer {
         Self {
             rope: Rope::from_str(content),
             file_path: None,
+            backup_path: None,
             modified: false,
             line_ending: LineEnding::default(),
             marks: HashMap::new(),
