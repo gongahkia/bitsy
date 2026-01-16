@@ -54,6 +54,8 @@ pub struct Buffer {
     modified: bool,
     read_only: bool,
     is_large: bool,
+    /// For large files, stores the portion of the file after the preview (not loaded into rope)
+    large_file_tail: Option<String>,
     line_ending: LineEnding,
     marks: HashMap<char, (usize, usize)>,
     encoding: Option<&'static Encoding>,
@@ -69,6 +71,7 @@ impl Buffer {
             modified: false,
             read_only: false,
             is_large: false,
+            large_file_tail: None,
             line_ending: LineEnding::default(),
             marks: HashMap::new(),
             encoding: None,
@@ -84,6 +87,7 @@ impl Buffer {
             modified: false,
             read_only: false,
             is_large: false,
+            large_file_tail: None,
             line_ending: LineEnding::default(),
             marks: HashMap::new(),
             encoding: None,
@@ -106,7 +110,6 @@ impl Buffer {
         let is_large_by_lines = line_count > config.large_file_line_threshold;
 
         let is_large = is_large_by_size || is_large_by_lines;
-        let read_only = is_large;
 
         let bytes = fs::read(&path)?;
 
@@ -124,16 +127,31 @@ impl Buffer {
         // Normalize to LF for internal representation
         let normalized = decoded_content.replace("\r\n", "\n").replace('\r', "\n");
 
-        // For large files, only load the first N lines (preview)
-        let content_to_load = if is_large {
-            let lines: Vec<&str> = normalized.lines().take(config.large_file_preview_lines).collect();
-            let mut preview = lines.join("\n");
-            if !preview.is_empty() {
+        // For large files, only load the first N lines (preview) and store the rest
+        let (content_to_load, large_file_tail) = if is_large {
+            let lines: Vec<&str> = normalized.lines().collect();
+            let preview_lines: Vec<&str> = lines.iter().take(config.large_file_preview_lines).cloned().collect();
+            let tail_lines: Vec<&str> = lines.iter().skip(config.large_file_preview_lines).cloned().collect();
+
+            let mut preview = preview_lines.join("\n");
+            if !preview.is_empty() && !tail_lines.is_empty() {
                 preview.push('\n');
             }
-            preview
+
+            let tail = if tail_lines.is_empty() {
+                None
+            } else {
+                let mut t = tail_lines.join("\n");
+                // Preserve final newline if original file had one
+                if normalized.ends_with('\n') && !t.ends_with('\n') {
+                    t.push('\n');
+                }
+                Some(t)
+            };
+
+            (preview, tail)
         } else {
-            normalized.to_string()
+            (normalized.to_string(), None)
         };
 
         let rope = Rope::from_str(&content_to_load);
@@ -153,8 +171,9 @@ impl Buffer {
             file_path: Some(path.as_ref().to_path_buf()),
             backup_path,
             modified: false,
-            read_only,
+            read_only: false,
             is_large,
+            large_file_tail,
             line_ending,
             marks: HashMap::new(),
             encoding: Some(encoding),
@@ -181,7 +200,12 @@ impl Buffer {
             return Err(Error::EditorError("File is read-only".to_string()));
         }
         if let Some(ref path) = self.file_path {
-            let content = self.rope.to_string();
+            let mut content = self.rope.to_string();
+
+            // For large files, append the tail that wasn't loaded into memory
+            if let Some(ref tail) = self.large_file_tail {
+                content.push_str(tail);
+            }
 
             // Convert line endings to the original format
             let content_with_endings = match self.line_ending {
