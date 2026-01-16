@@ -39,6 +39,10 @@ pulldown-cmark = "0.11"
 tiny_http = "0.12"
 webbrowser = "1.0"
 
+# Encoding detection
+encoding_rs = "0.8.34"
+encoding_rs_io = "0.1.7"
+
 # Clipboard support
 arboard = "3.4"
 

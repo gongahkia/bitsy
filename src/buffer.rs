@@ -78,7 +78,17 @@ impl Buffer {
     }
 
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let content = fs::read_to_string(&path)?;
+        use encoding_rs_io::DecodeReaderBytesBuilder;
+        use std::fs::File;
+        use std::io::Read;
+
+        let file = File::open(&path)?;
+        let mut reader = DecodeReaderBytesBuilder::new().build(file);
+
+        let mut content = String::new();
+        reader
+            .read_to_string(&mut content)
+            .map_err(|e| Error::Io(e))?;
 
         // Detect line ending from file content
         let line_ending = LineEnding::detect(&content);
