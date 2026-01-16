@@ -2,7 +2,6 @@
 # Target: Production-ready text editor with extended Vim features
 
 ## Phase 1
-(A) Now have it such that after opening a file, it immediately launches a localhost markdown preview in a browser and make it split screen if possible
 (A) Add Goyo and Lightline functionality (zen mode, highlighting) out of the box with sensible keybinds
 
 ## Phase 13: File Operations (7 tasks)

@@ -2,16 +2,22 @@
 
 use crossterm::event::{Event, KeyCode, KeyEvent};
 use crossterm::style::Color;
+use pulldown_cmark::{html, Options, Parser};
 use std::collections::HashMap;
-use std::path::Path;
 use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::thread::{self, JoinHandle};
+use std::time::Duration;
+use tiny_http::{Response, Server};
 
 use crate::buffer::Buffer;
 use crate::command::{parse_command, Command};
 use crate::command_bar::CommandBar;
 use crate::config::{Config, LineNumberMode};
 use crate::cursor::Cursor;
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::keymap::{map_key, Action};
 use crate::mode::Mode;
 use crate::register::{RegisterContent, RegisterManager};
@@ -83,6 +89,10 @@ pub struct Editor {
     help_return_buffer: Option<Buffer>,
     help_return_cursor: Option<Cursor>,
     was_showing_landing_page: bool,
+    // Markdown preview
+    markdown_preview_server: Option<JoinHandle<()>>,
+    markdown_preview_url: Option<String>,
+    markdown_preview_shutdown: Option<Arc<AtomicBool>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -174,6 +184,10 @@ impl Editor {
             help_return_buffer: None,
             help_return_cursor: None,
             was_showing_landing_page: false,
+            // Markdown preview
+            markdown_preview_server: None,
+            markdown_preview_url: None,
+            markdown_preview_shutdown: None,
         })
     }
 
@@ -195,12 +209,95 @@ impl Editor {
     }
 
     pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
-        let buffer = Buffer::from_file(&path)?;
+        let path = path.as_ref();
+        let buffer = Buffer::from_file(path)?;
         self.buffers[0] = buffer;
         self.windows[0].cursor = Cursor::default();
-        self.registers.update_filename(path.as_ref().to_string_lossy().to_string());
+        self.registers
+            .update_filename(path.to_string_lossy().to_string());
+
+        if path
+            .extension()
+            .map_or(false, |ext| ext == "md" || ext == "markdown")
+        {
+            self.start_markdown_preview(path.to_path_buf())?;
+        } else {
+            self.stop_markdown_preview();
+        }
+
         Ok(())
     }
+
+    fn stop_markdown_preview(&mut self) {
+        if let Some(shutdown) = self.markdown_preview_shutdown.take() {
+            shutdown.store(true, Ordering::Relaxed);
+        }
+        if let Some(handle) = self.markdown_preview_server.take() {
+            // We don't join the handle to avoid blocking the editor.
+            // The server should shut down gracefully on its own.
+            drop(handle);
+        }
+        self.markdown_preview_url = None;
+    }
+
+    fn start_markdown_preview(&mut self, path: PathBuf) -> Result<()> {
+        self.stop_markdown_preview(); // Stop any existing server
+
+        let shutdown = Arc::new(AtomicBool::new(false));
+        self.markdown_preview_shutdown = Some(shutdown.clone());
+
+        let server = match Server::http("127.0.0.1:0") {
+            Ok(s) => s,
+            Err(e) => {
+                return Err(Error::EditorError(format!(
+                    "Failed to start markdown server: {}",
+                    e
+                )));
+            }
+        };
+        let addr = server.server_addr().to_string();
+        let url = format!("http://{}", addr);
+
+        self.markdown_preview_url = Some(url.clone());
+
+        let handle = thread::spawn(move || {
+            while !shutdown.load(Ordering::Relaxed) {
+                if let Ok(Some(request)) = server.recv_timeout(Duration::from_millis(100)) {
+                    let content = fs::read_to_string(&path)
+                        .unwrap_or_else(|_| "Error reading file".to_string());
+
+                    let mut options = Options::empty();
+                    options.insert(Options::ENABLE_STRIKETHROUGH);
+                    let parser = Parser::new_ext(&content, options);
+
+                    let mut html_output = String::new();
+                    html::push_html(&mut html_output, parser);
+
+                    let response = Response::from_string(html_output).with_header(
+                        "Content-Type: text/html"
+                            .parse::<tiny_http::Header>()
+                            .unwrap(),
+                    );
+
+                    let _ = request.respond(response);
+                }
+            }
+        });
+
+        self.markdown_preview_server = Some(handle);
+
+        if webbrowser::open(&url).is_ok() {
+            self.message = Some(format!("Markdown preview started at {}", url));
+        } else {
+            self.message = Some(format!(
+                "Preview running at {}, but couldn't open browser.",
+                url
+            ));
+        }
+
+        Ok(())
+    }
+
 
     pub fn show_landing_page(&mut self) {
         let (width, _height) = self.terminal.size();
@@ -282,6 +379,7 @@ impl Editor {
             }
 
             if self.should_quit {
+                self.stop_markdown_preview(); // Stop server before exiting
                 break;
             }
 
@@ -3733,5 +3831,12 @@ note: this is a help buffer - :q to return, or edit as you like!
         self.substitute_preview_pattern = None;
         self.substitute_preview_range = None;
         self.visual_cmd_range = None;
+    }
+}
+
+impl Drop for Editor {
+    fn drop(&mut self) {
+        self.stop_markdown_preview();
+        // The terminal is restored in its own Drop implementation
     }
 }

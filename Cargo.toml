@@ -34,6 +34,11 @@ toml = "0.8"
 # Regex for search (for later phases)
 regex = "1.11"
 
+# Markdown preview
+pulldown-cmark = "0.11"
+tiny_http = "0.12"
+webbrowser = "1.0"
+
 # Clipboard support
 arboard = "3.4"
 
