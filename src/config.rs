@@ -24,6 +24,8 @@ pub struct Config {
     pub zen_mode: bool,
     pub zen_mode_width: usize,
     pub large_file_threshold_mb: u64,
+    pub large_file_line_threshold: usize,
+    pub large_file_preview_lines: usize,
 }
 
 impl Config {
@@ -40,6 +42,8 @@ impl Config {
             zen_mode: false,
             zen_mode_width: 80,
             large_file_threshold_mb: 100,
+            large_file_line_threshold: 50000,
+            large_file_preview_lines: 1000,
         }
     }
 

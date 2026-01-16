@@ -93,10 +93,19 @@ impl Buffer {
 
     pub fn from_file<P: AsRef<Path>>(path: P, config: &crate::config::Config) -> Result<Self> {
         use chardetng::EncodingDetector;
+        use std::io::{BufRead, BufReader};
 
         let metadata = fs::metadata(&path)?;
         let file_size_mb = metadata.len() / (1024 * 1024);
-        let is_large = file_size_mb > config.large_file_threshold_mb;
+        let is_large_by_size = file_size_mb > config.large_file_threshold_mb;
+
+        // Quick line count check for large file detection
+        let file = fs::File::open(&path)?;
+        let reader = BufReader::new(file);
+        let line_count = reader.lines().count();
+        let is_large_by_lines = line_count > config.large_file_line_threshold;
+
+        let is_large = is_large_by_size || is_large_by_lines;
         let read_only = is_large;
 
         let bytes = fs::read(&path)?;
@@ -114,7 +123,20 @@ impl Buffer {
 
         // Normalize to LF for internal representation
         let normalized = decoded_content.replace("\r\n", "\n").replace('\r', "\n");
-        let rope = Rope::from_str(&normalized);
+
+        // For large files, only load the first N lines (preview)
+        let content_to_load = if is_large {
+            let lines: Vec<&str> = normalized.lines().take(config.large_file_preview_lines).collect();
+            let mut preview = lines.join("\n");
+            if !preview.is_empty() {
+                preview.push('\n');
+            }
+            preview
+        } else {
+            normalized.to_string()
+        };
+
+        let rope = Rope::from_str(&content_to_load);
 
         let backup_path = if let Some(file_name) = path.as_ref().file_name().and_then(|n| n.to_str()) {
             let mut backup_file_name = ".".to_string();
@@ -306,6 +328,10 @@ impl Buffer {
 
     pub fn is_read_only(&self) -> bool {
         self.read_only
+    }
+
+    pub fn is_large_file(&self) -> bool {
+        self.is_large
     }
 
     pub fn line_ending(&self) -> LineEnding {
