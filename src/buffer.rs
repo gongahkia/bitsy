@@ -10,7 +10,41 @@ use crate::error::{Error, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LineEnding {
-//...
+    LF,   // Unix/Linux/macOS: \n
+    CRLF, // Windows: \r\n
+    CR,   // Old Mac: \r
+}
+
+impl LineEnding {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            LineEnding::LF => "\n",
+            LineEnding::CRLF => "\r\n",
+            LineEnding::CR => "\r",
+        }
+    }
+
+    pub fn detect(content: &str) -> Self {
+        if content.contains("\r\n") {
+            LineEnding::CRLF
+        } else if content.contains('\r') {
+            LineEnding::CR
+        } else {
+            LineEnding::LF
+        }
+    }
+}
+
+impl Default for LineEnding {
+    fn default() -> Self {
+        #[cfg(windows)]
+        return LineEnding::CRLF;
+
+        #[cfg(not(windows))]
+        LineEnding::LF
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Buffer {
     rope: Rope,
@@ -45,23 +79,21 @@ impl Buffer {
     }
 
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        use encoding_rs_io::DecodeReaderBytesBuilder;
-        use std::fs::File;
-        use std::io::Read;
+        use chardetng::EncodingDetector;
 
-        let file = File::open(&path)?;
-        let mut reader = DecodeReaderBytesBuilder::new().build(file);
+        let bytes = fs::read(&path)?;
 
-        let mut content = String::new();
-        reader
-            .read_to_string(&mut content)
-            .map_err(|e| Error::Io(e))?;
+        let mut detector = EncodingDetector::new();
+        detector.feed(&bytes, true);
+        let (encoding, ..) = detector.guess_assess(None, true);
+
+        let (decoded_content, _, _) = encoding.decode(&bytes);
 
         // Detect line ending from file content
-        let line_ending = LineEnding::detect(&content);
+        let line_ending = LineEnding::detect(&decoded_content);
 
         // Normalize to LF for internal representation
-        let normalized = content.replace("\r\n", "\n").replace('\r', "\n");
+        let normalized = decoded_content.replace("\r\n", "\n").replace('\r', "\n");
         let rope = Rope::from_str(&normalized);
 
         Ok(Self {
@@ -70,6 +102,7 @@ impl Buffer {
             modified: false,
             line_ending,
             marks: HashMap::new(),
+            encoding: Some(encoding),
         })
     }
 
@@ -98,7 +131,24 @@ impl Buffer {
                 LineEnding::CR => content.replace('\n', "\r"),
             };
 
-            fs::write(path, content_with_endings)?;
+            if let Some(encoding) = self.encoding {
+                if encoding != encoding_rs::UTF_8 {
+                    let (encoded_bytes, _, had_errors) = encoding.encode(&content_with_endings);
+                    if had_errors {
+                        return Err(Error::EditorError(format!(
+                            "Failed to encode file in {}",
+                            encoding.name()
+                        )));
+                    }
+                    fs::write(path, encoded_bytes)?;
+                } else {
+                    fs::write(path, content_with_endings)?;
+                }
+            } else {
+                // Default to UTF-8 if no encoding was detected
+                fs::write(path, content_with_endings)?;
+            }
+
             self.modified = false;
             Ok(())
         } else {

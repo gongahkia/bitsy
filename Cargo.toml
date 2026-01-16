@@ -41,7 +41,7 @@ webbrowser = "1.0"
 
 # Encoding detection
 encoding_rs = "0.8.34"
-encoding_rs_io = "0.1.7"
+chardetng = "0.1.2"
 
 # Clipboard support
 arboard = "3.4"
