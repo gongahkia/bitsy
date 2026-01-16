@@ -8,6 +8,7 @@ pub mod config;
 pub mod cursor;
 pub mod editor;
 pub mod error;
+pub mod filetype;
 pub mod keymap;
 pub mod mode;
 pub mod motion;

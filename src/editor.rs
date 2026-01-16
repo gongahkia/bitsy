@@ -3834,9 +3834,10 @@ note: this is a help buffer - :q to return, or edit as you like!
         let total_lines = self.current_buffer().line_count();
         let cursor = self.current_window().cursor;
         let modified = self.current_buffer().is_modified();
+        let file_type = self.current_buffer().file_type().as_str();
 
         self.statusline
-            .update(self.mode, &filename, cursor, modified, total_lines);
+            .update(self.mode, &filename, file_type, cursor, modified, total_lines);
 
         let components = self.statusline.render(width as usize);
         for component in components {

@@ -15,6 +15,7 @@ pub struct StatusLineComponent {
 pub struct StatusLine {
     mode: Mode,
     filename: String,
+    file_type: String,
     cursor: Cursor,
     modified: bool,
     total_lines: usize,
@@ -26,6 +27,7 @@ impl StatusLine {
         Self {
             mode: Mode::Normal,
             filename: "[No Name]".to_string(),
+            file_type: "text".to_string(),
             cursor: Cursor::default(),
             modified: false,
             total_lines: 1,
@@ -37,12 +39,14 @@ impl StatusLine {
         &mut self,
         mode: Mode,
         filename: &str,
+        file_type: &str,
         cursor: Cursor,
         modified: bool,
         total_lines: usize,
     ) {
         self.mode = mode;
         self.filename = filename.to_string();
+        self.file_type = file_type.to_string();
         self.cursor = cursor;
         self.modified = modified;
         self.total_lines = total_lines;
@@ -103,6 +107,12 @@ impl StatusLine {
         };
 
         let right_components = vec![
+            StatusLineComponent {
+                text: format!(" {} ", self.file_type),
+                fg: Color::White,
+                bg: Color::DarkGrey,
+                bold: false,
+            },
             StatusLineComponent {
                 text: format!(" {}% ", percentage),
                 fg: mode_fg,

@@ -4,7 +4,6 @@
 ## Phase 1
 
 ## Phase 13: File Operations (7 tasks)
-(B) 2026-01-09 Create file type detection (extension, shebang, modeline) +files @implementation
 (C) 2026-01-09 Build large file handling optimizations (lazy loading) +files @implementation
 (C) 2026-01-09 Implement safe file saving (atomic write with temp file) +files @implementation
 

@@ -7,6 +7,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::error::{Error, Result};
+use crate::filetype::{detect_file_type, FileType};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LineEnding {
@@ -54,6 +55,7 @@ pub struct Buffer {
     line_ending: LineEnding,
     marks: HashMap<char, (usize, usize)>,
     encoding: Option<&'static Encoding>,
+    file_type: FileType,
 }
 
 impl Buffer {
@@ -66,6 +68,7 @@ impl Buffer {
             line_ending: LineEnding::default(),
             marks: HashMap::new(),
             encoding: None,
+            file_type: FileType::Unknown,
         }
     }
 
@@ -78,6 +81,7 @@ impl Buffer {
             line_ending: LineEnding::default(),
             marks: HashMap::new(),
             encoding: None,
+            file_type: FileType::Unknown,
         }
     }
 
@@ -92,6 +96,8 @@ impl Buffer {
 
         let (decoded_content, _, _) = encoding.decode(&bytes);
 
+        let file_type = detect_file_type(path.as_ref(), &decoded_content);
+
         // Detect line ending from file content
         let line_ending = LineEnding::detect(&decoded_content);
 
@@ -99,8 +105,7 @@ impl Buffer {
         let normalized = decoded_content.replace("\r\n", "\n").replace('\r', "\n");
         let rope = Rope::from_str(&normalized);
 
-        let backup_path = if let Some(file_name) = path.as_ref().file_name().and_then(|n| n.to_str())
-        {
+        let backup_path = if let Some(file_name) = path.as_ref().file_name().and_then(|n| n.to_str()) {
             let mut backup_file_name = ".".to_string();
             backup_file_name.push_str(file_name);
             backup_file_name.push_str(".swp");
@@ -118,6 +123,7 @@ impl Buffer {
             line_ending,
             marks: HashMap::new(),
             encoding: Some(encoding),
+            file_type,
         })
     }
 
@@ -277,6 +283,10 @@ impl Buffer {
     pub fn set_line_ending(&mut self, line_ending: LineEnding) {
         self.set_modified(true);
         self.line_ending = line_ending;
+    }
+
+    pub fn file_type(&self) -> FileType {
+        self.file_type
     }
 
     fn create_backup(&self) -> Result<()> {
