@@ -4,7 +4,7 @@ use crossterm::{
     cursor,
     event::{self, Event},
     execute,
-    style::{self, Color},
+    style::{self, Attribute, Color},
     terminal::{self, ClearType},
 };
 use std::io::{self, Write};
@@ -81,6 +81,33 @@ impl Terminal {
         )?;
         print!("{}", text);
         execute!(io::stdout(), style::ResetColor)?;
+        Ok(())
+    }
+
+    pub fn print_with_bg_and_style(
+        &self,
+        text: &str,
+        fg_color: Color,
+        bg_color: Color,
+        bold: bool,
+    ) -> Result<()> {
+        execute!(
+            io::stdout(),
+            style::SetForegroundColor(fg_color),
+            style::SetBackgroundColor(bg_color)
+        )?;
+
+        if bold {
+            execute!(io::stdout(), style::SetAttribute(Attribute::Bold))?;
+        }
+
+        print!("{}", text);
+
+        if bold {
+            execute!(io::stdout(), style::SetAttribute(Attribute::NoBold))?;
+        }
+        execute!(io::stdout(), style::ResetColor)?;
+
         Ok(())
     }
 

@@ -29,6 +29,7 @@ pub enum Command {
     CloseWindow,
     Registers,
     Marks,
+    Goyo,
     Unknown(String),
 }
 
@@ -103,6 +104,8 @@ pub fn parse_command(input: &str) -> Result<Command> {
                 Ok(Command::Registers)
             } else if command == "marks" {
                 Ok(Command::Marks)
+            } else if command == "Goyo" || command == "Zen" {
+                Ok(Command::Goyo)
             } else {
                 Ok(Command::Unknown(command.to_string()))
             }

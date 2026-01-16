@@ -2,7 +2,6 @@
 # Target: Production-ready text editor with extended Vim features
 
 ## Phase 1
-(A) Add Goyo and Lightline functionality (zen mode, highlighting) out of the box with sensible keybinds
 
 ## Phase 13: File Operations (7 tasks)
 (A) 2026-01-09 Implement file reading with encoding detection +files @implementation

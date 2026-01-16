@@ -21,6 +21,8 @@ pub struct Config {
     pub highlight_search: bool,
     pub ignore_case: bool,
     pub smart_case: bool, // Override ignorecase when search has uppercase
+    pub zen_mode: bool,
+    pub zen_mode_width: usize,
 }
 
 impl Config {
@@ -34,6 +36,8 @@ impl Config {
             highlight_search: true,
             ignore_case: false,
             smart_case: true,
+            zen_mode: false,
+            zen_mode_width: 80,
         }
     }
 

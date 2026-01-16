@@ -93,6 +93,7 @@ pub struct Editor {
     markdown_preview_server: Option<JoinHandle<()>>,
     markdown_preview_url: Option<String>,
     markdown_preview_shutdown: Option<Arc<AtomicBool>>,
+    zen_mode: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -188,6 +189,7 @@ impl Editor {
             markdown_preview_server: None,
             markdown_preview_url: None,
             markdown_preview_shutdown: None,
+            zen_mode: false,
         })
     }
 
@@ -1163,15 +1165,24 @@ note: this is a help buffer - :q to return, or edit as you like!
                     marks.push((*k, *v));
                 }
                 marks.sort_by_key(|(k, _)| *k);
-                
+
                 if marks.is_empty() {
                     self.message = Some("No marks set".to_string());
                 } else {
-                    let output = marks.iter()
+                    let output = marks
+                        .iter()
                         .map(|(k, (line, col))| format!("{} {}:{}", k, line + 1, col))
                         .collect::<Vec<_>>()
                         .join("  ");
                     self.message = Some(output);
+                }
+            }
+            Command::Goyo => {
+                self.zen_mode = !self.zen_mode;
+                if self.zen_mode {
+                    self.message = Some("Zen mode enabled".to_string());
+                } else {
+                    self.message = Some("Zen mode disabled".to_string());
                 }
             }
             Command::Unknown(cmd) => {
@@ -3538,10 +3549,19 @@ note: this is a help buffer - :q to return, or edit as you like!
         // Render command line or message
         self.render_command_line()?;
 
-        // Position cursor (account for line number gutter)
+        // Position cursor (account for line number gutter and zen mode padding)
+        let (padding, _) = if self.zen_mode {
+            let zen_width = self.config.zen_mode_width;
+            let padding = (self.terminal.size().0 as usize).saturating_sub(zen_width) / 2;
+            (padding, zen_width)
+        } else {
+            (0, self.terminal.size().0 as usize)
+        };
+
         let line_num_width = self.config.line_number_width(self.current_buffer().line_count());
         let screen_row = self.current_window().cursor.line.saturating_sub(self.current_window().viewport.offset_line);
-        let screen_col = self.current_window().cursor.col.saturating_sub(self.current_window().viewport.offset_col) + line_num_width;
+        let screen_col = padding + line_num_width + self.current_window().cursor.col.saturating_sub(self.current_window().viewport.offset_col);
+        
         self.terminal.move_cursor(screen_col as u16, screen_row as u16)?;
 
         self.terminal.show_cursor()?;
@@ -3553,7 +3573,17 @@ note: this is a help buffer - :q to return, or edit as you like!
     fn render_buffer(&mut self) -> Result<()> {
         let (width, height) = self.terminal.size();
         let viewport_height = (height as usize).saturating_sub(2);
+
+        let (padding, text_width) = if self.zen_mode {
+            let zen_width = self.config.zen_mode_width;
+            let padding = (width as usize).saturating_sub(zen_width) / 2;
+            (padding, zen_width)
+        } else {
+            (0, width as usize)
+        };
+
         let line_num_width = self.config.line_number_width(self.current_buffer().line_count());
+        let effective_text_width = text_width.saturating_sub(line_num_width);
 
         let offset_line = self.current_window().viewport.offset_line;
         let offset_col = self.current_window().viewport.offset_col;
@@ -3564,6 +3594,11 @@ note: this is a help buffer - :q to return, or edit as you like!
             self.terminal.move_cursor(0, row as u16)?;
             self.terminal.clear_line()?;
 
+            // Print left padding for zen mode
+            if padding > 0 {
+                self.terminal.print(&" ".repeat(padding))?;
+            }
+
             if file_line < self.current_buffer().line_count() {
                 // Render line number
                 self.render_line_number(file_line, line_num_width)?;
@@ -3571,14 +3606,16 @@ note: this is a help buffer - :q to return, or edit as you like!
                 // Render line content with selection highlighting
                 if let Some(line) = self.current_buffer().get_line(file_line) {
                     let start = offset_col.min(line.len());
-                    let available_width = (width as usize).saturating_sub(line_num_width);
-                    self.render_line_content(file_line, &line, start, available_width)?;
+                    self.render_line_content(file_line, &line, start, effective_text_width)?;
                 }
             } else {
                 // Render empty line indicator
+                if padding > 0 {
+                    self.terminal.print(&" ".repeat(padding))?;
+                }
                 if line_num_width > 0 {
-                    let padding = " ".repeat(line_num_width.saturating_sub(1));
-                    self.terminal.print_colored(&padding, Color::DarkGrey)?;
+                    let l_padding = " ".repeat(line_num_width.saturating_sub(1));
+                    self.terminal.print_colored(&l_padding, Color::DarkGrey)?;
                 }
                 self.terminal.print_colored("~", Color::Blue)?;
             }
@@ -3726,11 +3763,19 @@ note: this is a help buffer - :q to return, or edit as you like!
         let total_lines = self.current_buffer().line_count();
         let cursor = self.current_window().cursor;
         let modified = self.current_buffer().is_modified();
-        
-        self.statusline.update(self.mode, &filename, cursor, modified, total_lines);
 
-        let status_text = self.statusline.render(width as usize);
-        self.terminal.print_with_bg(&status_text, Color::Black, Color::Grey)?;
+        self.statusline
+            .update(self.mode, &filename, cursor, modified, total_lines);
+
+        let components = self.statusline.render(width as usize);
+        for component in components {
+            self.terminal.print_with_bg_and_style(
+                &component.text,
+                component.fg,
+                component.bg,
+                component.bold,
+            )?;
+        }
 
         Ok(())
     }
