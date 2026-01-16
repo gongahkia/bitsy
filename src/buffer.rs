@@ -52,6 +52,8 @@ pub struct Buffer {
     file_path: Option<PathBuf>,
     backup_path: Option<PathBuf>,
     modified: bool,
+    read_only: bool,
+    is_large: bool,
     line_ending: LineEnding,
     marks: HashMap<char, (usize, usize)>,
     encoding: Option<&'static Encoding>,
@@ -65,6 +67,8 @@ impl Buffer {
             file_path: None,
             backup_path: None,
             modified: false,
+            read_only: false,
+            is_large: false,
             line_ending: LineEnding::default(),
             marks: HashMap::new(),
             encoding: None,
@@ -78,6 +82,8 @@ impl Buffer {
             file_path: None,
             backup_path: None,
             modified: false,
+            read_only: false,
+            is_large: false,
             line_ending: LineEnding::default(),
             marks: HashMap::new(),
             encoding: None,
@@ -85,8 +91,13 @@ impl Buffer {
         }
     }
 
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub fn from_file<P: AsRef<Path>>(path: P, config: &crate::config::Config) -> Result<Self> {
         use chardetng::EncodingDetector;
+
+        let metadata = fs::metadata(&path)?;
+        let file_size_mb = metadata.len() / (1024 * 1024);
+        let is_large = file_size_mb > config.large_file_threshold_mb;
+        let read_only = is_large;
 
         let bytes = fs::read(&path)?;
 
@@ -120,6 +131,8 @@ impl Buffer {
             file_path: Some(path.as_ref().to_path_buf()),
             backup_path,
             modified: false,
+            read_only,
+            is_large,
             line_ending,
             marks: HashMap::new(),
             encoding: Some(encoding),
@@ -142,6 +155,9 @@ impl Buffer {
     }
 
     pub fn save(&mut self) -> Result<()> {
+        if self.read_only {
+            return Err(Error::EditorError("File is read-only".to_string()));
+        }
         if let Some(ref path) = self.file_path {
             let content = self.rope.to_string();
 
@@ -184,6 +200,9 @@ impl Buffer {
     }
 
     pub fn insert_char(&mut self, line: usize, col: usize, ch: char) {
+        if self.read_only {
+            return;
+        }
         if line < self.line_count() {
             let line_start = self.rope.line_to_char(line);
             let insert_pos = line_start + col.min(self.line_len(line));
@@ -193,6 +212,9 @@ impl Buffer {
     }
 
     pub fn insert_newline(&mut self, line: usize, col: usize) {
+        if self.read_only {
+            return;
+        }
         if line < self.line_count() {
             let line_start = self.rope.line_to_char(line);
             let insert_pos = line_start + col.min(self.line_len(line));
@@ -202,6 +224,9 @@ impl Buffer {
     }
 
     pub fn delete_char(&mut self, line: usize, col: usize) {
+        if self.read_only {
+            return;
+        }
         if line < self.line_count() && col < self.line_len(line) {
             let line_start = self.rope.line_to_char(line);
             let delete_pos = line_start + col;
@@ -211,6 +236,9 @@ impl Buffer {
     }
 
     pub fn delete_range(&mut self, start_line: usize, start_col: usize, end_line: usize, end_col: usize) {
+        if self.read_only {
+            return;
+        }
         let start_char = self.rope.line_to_char(start_line) + start_col;
         
         let end_char = if end_col == usize::MAX {
@@ -276,11 +304,18 @@ impl Buffer {
             .to_string()
     }
 
+    pub fn is_read_only(&self) -> bool {
+        self.read_only
+    }
+
     pub fn line_ending(&self) -> LineEnding {
         self.line_ending
     }
 
     pub fn set_line_ending(&mut self, line_ending: LineEnding) {
+        if self.read_only {
+            return;
+        }
         self.set_modified(true);
         self.line_ending = line_ending;
     }

@@ -23,6 +23,7 @@ pub struct Config {
     pub smart_case: bool, // Override ignorecase when search has uppercase
     pub zen_mode: bool,
     pub zen_mode_width: usize,
+    pub large_file_threshold_mb: u64,
 }
 
 impl Config {
@@ -38,6 +39,7 @@ impl Config {
             smart_case: true,
             zen_mode: false,
             zen_mode_width: 80,
+            large_file_threshold_mb: 100,
         }
     }
 

@@ -18,6 +18,7 @@ pub struct StatusLine {
     file_type: String,
     cursor: Cursor,
     modified: bool,
+    read_only: bool,
     total_lines: usize,
     git_branch: Option<String>,
 }
@@ -30,6 +31,7 @@ impl StatusLine {
             file_type: "text".to_string(),
             cursor: Cursor::default(),
             modified: false,
+            read_only: false,
             total_lines: 1,
             git_branch: get_git_branch(),
         }
@@ -42,6 +44,7 @@ impl StatusLine {
         file_type: &str,
         cursor: Cursor,
         modified: bool,
+        read_only: bool,
         total_lines: usize,
     ) {
         self.mode = mode;
@@ -49,6 +52,7 @@ impl StatusLine {
         self.file_type = file_type.to_string();
         self.cursor = cursor;
         self.modified = modified;
+        self.read_only = read_only;
         self.total_lines = total_lines;
         // Maybe refresh git branch periodically? For now, only on update.
         if self.git_branch.is_none() {
@@ -80,6 +84,15 @@ impl StatusLine {
                 bold: false,
             },
         ];
+
+        if self.read_only {
+            left_components.push(StatusLineComponent {
+                text: " [RO] ".to_string(),
+                fg: Color::Red,
+                bg: Color::DarkGrey,
+                bold: true,
+            });
+        }
 
         if self.modified {
             left_components.push(StatusLineComponent {

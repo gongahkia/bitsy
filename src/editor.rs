@@ -222,7 +222,7 @@ impl Editor {
 
     pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         let path = path.as_ref();
-        let buffer = Buffer::from_file(path)?;
+        let buffer = Buffer::from_file(path, &self.config)?;
         self.buffers[0] = buffer;
         self.windows[0].cursor = Cursor::default();
         self.registers
@@ -1023,7 +1023,7 @@ impl Editor {
                 if self.current_buffer().is_modified() && !was_landing_page {
                     self.message = Some("No write since last change".to_string());
                 } else {
-                    match Buffer::from_file(&filename) {
+                    match Buffer::from_file(&filename, &self.config) {
                         Ok(new_buffer) => {
                             self.buffers[self.windows[self.active_window].buffer_index] = new_buffer;
                             self.windows[self.active_window].cursor = Cursor::default();
@@ -3834,10 +3834,18 @@ note: this is a help buffer - :q to return, or edit as you like!
         let total_lines = self.current_buffer().line_count();
         let cursor = self.current_window().cursor;
         let modified = self.current_buffer().is_modified();
+        let read_only = self.current_buffer().is_read_only();
         let file_type = self.current_buffer().file_type().as_str();
 
-        self.statusline
-            .update(self.mode, &filename, file_type, cursor, modified, total_lines);
+        self.statusline.update(
+            self.mode,
+            &filename,
+            file_type,
+            cursor,
+            modified,
+            read_only,
+            total_lines,
+        );
 
         let components = self.statusline.render(width as usize);
         for component in components {
