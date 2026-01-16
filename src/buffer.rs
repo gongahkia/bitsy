@@ -196,6 +196,8 @@ impl Buffer {
     }
 
     pub fn save(&mut self) -> Result<()> {
+        use std::io::Write;
+
         if self.read_only {
             return Err(Error::EditorError("File is read-only".to_string()));
         }
@@ -214,7 +216,11 @@ impl Buffer {
                 LineEnding::CR => content.replace('\n', "\r"),
             };
 
-            if let Some(encoding) = self.encoding {
+            // Create temp file path in the same directory for atomic rename
+            let temp_path = path.with_extension("tmp");
+
+            // Write to temp file first
+            let bytes_to_write: Vec<u8> = if let Some(encoding) = self.encoding {
                 if encoding != encoding_rs::UTF_8 {
                     let (encoded_bytes, _, had_errors) = encoding.encode(&content_with_endings);
                     if had_errors {
@@ -223,14 +229,23 @@ impl Buffer {
                             encoding.name()
                         )));
                     }
-                    fs::write(path, encoded_bytes)?;
+                    encoded_bytes.into_owned()
                 } else {
-                    fs::write(path, content_with_endings)?;
+                    content_with_endings.into_bytes()
                 }
             } else {
-                // Default to UTF-8 if no encoding was detected
-                fs::write(path, content_with_endings)?;
+                content_with_endings.into_bytes()
+            };
+
+            // Write to temp file and sync to disk
+            {
+                let mut file = fs::File::create(&temp_path)?;
+                file.write_all(&bytes_to_write)?;
+                file.sync_all()?;
             }
+
+            // Atomic rename (replaces destination if it exists)
+            fs::rename(&temp_path, path)?;
 
             self.set_modified(false);
             self.remove_backup();
