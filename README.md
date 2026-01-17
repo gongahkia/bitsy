@@ -22,7 +22,7 @@
 
 As per custom, here is a video of `Bitsy` editing its own [source code](./src/).
 
-<video src="./asset/reference/bitsy.mp4" controls></video>
+https://github.com/user-attachments/assets/a1a374d2-8965-4a50-bc84-6001d7682468
 
 ## Other screenshots
 
