@@ -2,19 +2,30 @@
 
 # `Bitsy`
 
-A Vim-compatible text editor written in Rust.
+[Vim](https://www.vim.org/)-compatible text editor written in Rust.
 
 <div align="center">
-    <img src="./asset/png-logo/spider.png" width="50%">
+    <img src="./asset/reference/1.png" width="50%">"
 </div>
 
 ## Stack
 
-...
+* *Script*: [Rust](), 
+* *CLI*: 
+* *Parser*: 
 
-## Screenshots
+## Video
 
-...
+As per custom, here is a video of `Bitsy` editing its own [source code](./src/).
+
+<video src="./asset/reference/bitsy.mp4" controls></video>
+
+## Other screenshots
+
+<div align="center">
+    <img src="./asset/reference/2.png" width="45%">"
+    <img src="./asset/reference/3.png" width="45%">"
+</div>
 
 ## Usage
 
@@ -35,6 +46,21 @@ $ bitsy # open landing page
 $ bitsy myfile.txt # edit an existing file
 ```
 
+3. `Bitsy` additionally provides the below commands.
+
+* `:help` in Command Mode: *Pulls up a user manual in the current buffer*
+* `Ctrl + p`: *Fuzzy Finder that searches within the current directory*
+
 ## Architecture
 
+```mermaid
 ...
+```
+
+## Reference
+
+The name `Bitsy` is in reference to the nursery rhyme.
+
+## Other notes
+
+`Bitsy` is also the spiritual successor of [`Shed`](https://github.com/gongahkia/shed), a *much-worse* text editor I wrote at the beginning of my programming journey.
