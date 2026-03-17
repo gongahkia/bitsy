@@ -43,6 +43,10 @@ pub enum Command {
     Files,
     Buffers,
     Grep(String),
+    Normal { keys: String, range: Option<Range> }, // :norm <keys>
+    Terminal,                                       // :terminal
+    Shell(String),                                  // :!cmd
+    Filter { cmd: String, range: Option<Range> },   // :{range}!cmd
     Unknown(String),
 }
 
@@ -65,7 +69,16 @@ pub fn parse_command(input: &str) -> Result<Command> {
         "wq" | "x" => Ok(Command::WriteQuit(None)),
         "q!" => Ok(Command::ForceQuit),
         "d" | "delete" => Ok(Command::Delete { range }),
+        "terminal" | "term" => Ok(Command::Terminal),
         _ => {
+            // :!cmd or :{range}!cmd
+            if let Some(rest) = command.strip_prefix('!') {
+                if range.is_some() {
+                    return Ok(Command::Filter { cmd: rest.to_string(), range });
+                }
+                return Ok(Command::Shell(rest.to_string()));
+            }
+
             // Try to parse substitute command
             if command.starts_with("s/") {
                 return parse_substitute(command, range);
@@ -74,6 +87,14 @@ pub fn parse_command(input: &str) -> Result<Command> {
             // Try to parse as line number
             if let Ok(line_num) = command.parse::<usize>() {
                 return Ok(Command::GoToLine(line_num));
+            }
+
+            // :norm <keys>
+            if let Some(keys) = command.strip_prefix("norm ").or_else(|| command.strip_prefix("normal ")) {
+                return Ok(Command::Normal { keys: keys.to_string(), range });
+            }
+            if command == "norm" || command == "normal" {
+                return Ok(Command::Normal { keys: String::new(), range });
             }
 
             if let Some(filename) = command.strip_prefix("e ") {

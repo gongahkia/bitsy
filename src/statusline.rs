@@ -60,6 +60,10 @@ impl StatusLine {
         }
     }
 
+    pub fn git_branch(&self) -> Option<&str> {
+        self.git_branch.as_deref()
+    }
+
     pub fn render(&self, width: usize) -> Vec<StatusLineComponent> {
         let (mode_bg, mode_fg) = match self.mode {
             Mode::Normal => (Color::Blue, Color::White),

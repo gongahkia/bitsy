@@ -111,6 +111,34 @@ pub enum Action {
     JumpBack,              // Ctrl-o
     JumpForward,           // Ctrl-i
 
+    // Visual block
+    VisualBlockInsert,  // I in visual block
+    VisualBlockAppend,  // A in visual block
+    VisualBlockChange,  // c in visual block
+    VisualBlockReplace, // r in visual block (waits for char)
+
+    // Surround
+    SurroundChange(char, char), // cs{old}{new}
+    SurroundDelete(char),       // ds{char}
+    SurroundAdd,                // ys (waits for motion + char)
+
+    // Leader
+    LeaderAction(String), // action triggered via leader key
+
+    // Window management
+    WindowSplitH,      // Ctrl-w s
+    WindowSplitV,      // Ctrl-w v
+    WindowClose,       // Ctrl-w c
+    WindowFocusLeft,   // Ctrl-w h
+    WindowFocusDown,   // Ctrl-w j
+    WindowFocusUp,     // Ctrl-w k
+    WindowFocusRight,  // Ctrl-w l
+    WindowCycle,       // Ctrl-w w
+    WindowEqualize,    // Ctrl-w =
+
+    // LSP
+    LspCompletion, // Ctrl-n (trigger completion)
+
     // Other
     RepeatLastChange, // . (dot command)
     OpenFileFinder,   // Ctrl-p (file fuzzy finder)
@@ -145,6 +173,7 @@ fn map_normal_mode_key(key: KeyEvent) -> Action {
         KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::Redo,
         KeyCode::Char('o') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::JumpBack,
         KeyCode::Char('i') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::JumpForward,
+        KeyCode::Char('n') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::LspCompletion,
         KeyCode::Char('p') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             Action::OpenFileFinder
         }
@@ -249,13 +278,20 @@ fn map_replace_mode_key(key: KeyEvent) -> Action {
 fn map_visual_mode_key(key: KeyEvent) -> Action {
     match key.code {
         KeyCode::Esc => Action::EnterNormalMode,
-        // Same movement keys as normal mode
         KeyCode::Char('h') => Action::MoveLeft,
         KeyCode::Char('j') => Action::MoveDown,
         KeyCode::Char('k') => Action::MoveUp,
         KeyCode::Char('l') => Action::MoveRight,
+        KeyCode::Char('w') => Action::MoveWordForward,
+        KeyCode::Char('b') => Action::MoveWordBackward,
+        KeyCode::Char('e') => Action::MoveWordEnd,
+        KeyCode::Char('0') => Action::MoveLineStart,
+        KeyCode::Char('$') => Action::MoveLineEnd,
         KeyCode::Char('d') => Action::Delete,
         KeyCode::Char('y') => Action::Yank,
+        KeyCode::Char('c') => Action::VisualBlockChange,
+        KeyCode::Char('I') => Action::VisualBlockInsert,
+        KeyCode::Char('A') => Action::VisualBlockAppend,
         _ => Action::None,
     }
 }

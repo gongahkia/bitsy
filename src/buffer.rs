@@ -333,6 +333,33 @@ impl Buffer {
         }
     }
 
+    pub fn get_char_at(&self, line: usize, col: usize) -> Option<char> {
+        if line < self.line_count() && col < self.line_len(line) {
+            let line_start = self.rope.line_to_char(line);
+            Some(self.rope.char(line_start + col))
+        } else {
+            None
+        }
+    }
+
+    pub fn get_range_text(&self, start_line: usize, start_col: usize, end_line: usize, end_col: usize) -> String {
+        let start_char = self.rope.line_to_char(start_line) + start_col;
+        let end_char = if end_col == usize::MAX {
+            if end_line + 1 < self.rope.len_lines() {
+                self.rope.line_to_char(end_line + 1)
+            } else {
+                self.rope.len_chars()
+            }
+        } else {
+            self.rope.line_to_char(end_line) + end_col
+        };
+        if start_char <= end_char && end_char <= self.rope.len_chars() {
+            self.rope.slice(start_char..end_char).to_string()
+        } else {
+            String::new()
+        }
+    }
+
     pub fn get_line(&self, line: usize) -> Option<String> {
         if line < self.line_count() {
             let start = self.rope.line_to_char(line);
@@ -398,6 +425,10 @@ impl Buffer {
         }
         self.set_modified(true);
         self.line_ending = line_ending;
+    }
+
+    pub fn get_all_text(&self) -> Option<String> {
+        Some(self.rope.to_string())
     }
 
     pub fn file_type(&self) -> FileType {

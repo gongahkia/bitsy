@@ -1,5 +1,6 @@
 // Editor configuration
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::fs;
 use toml;
 
@@ -26,7 +27,13 @@ pub struct Config {
     pub large_file_threshold_mb: u64,
     pub large_file_line_threshold: usize,
     pub large_file_preview_lines: usize,
+    #[serde(default = "default_leader_key")]
+    pub leader_key: Option<char>,
+    #[serde(default)]
+    pub leader_bindings: HashMap<char, String>, // leader key -> action name
 }
+
+fn default_leader_key() -> Option<char> { Some(' ') }
 
 impl Config {
     pub fn new() -> Self {
@@ -44,6 +51,8 @@ impl Config {
             large_file_threshold_mb: 100,
             large_file_line_threshold: 50000,
             large_file_preview_lines: 1000,
+            leader_key: Some(' '),
+            leader_bindings: HashMap::new(),
         }
     }
 
